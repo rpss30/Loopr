@@ -4,7 +4,7 @@ import { Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'rea
 import { useProjects } from '../features/projects/project-store';
 
 export default function ProjectListScreen() {
-  const { projects } = useProjects();
+  const { projects, isLoadingProjects, projectStorageError } = useProjects();
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -20,6 +20,18 @@ export default function ProjectListScreen() {
             <Text style={styles.primaryButtonText}>Create new project</Text>
           </Pressable>
         </View>
+
+        {isLoadingProjects ? (
+        <View style={styles.noticeCard}>
+            <Text style={styles.noticeText}>Loading saved projects...</Text>
+        </View>
+        ) : null}
+
+        {projectStorageError ? (
+        <View style={styles.errorCard}>
+            <Text style={styles.errorText}>{projectStorageError}</Text>
+        </View>
+        ) : null}
 
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Recent Projects</Text>
@@ -136,5 +148,29 @@ const styles = StyleSheet.create({
     color: '#38BDF8',
     fontSize: 32,
     fontWeight: '300',
+  },
+  noticeCard: {
+    backgroundColor: '#172554',
+    borderRadius: 18,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#1D4ED8',
+  },
+  noticeText: {
+    color: '#BFDBFE',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  errorCard: {
+    backgroundColor: '#450A0A',
+    borderRadius: 18,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#991B1B',
+  },
+  errorText: {
+    color: '#FECACA',
+    fontSize: 14,
+    fontWeight: '700',
   },
 });

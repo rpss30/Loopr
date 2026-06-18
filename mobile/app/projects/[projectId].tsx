@@ -5,9 +5,20 @@ import { useProjects } from '../../features/projects/project-store';
 
 export default function LoopWorkspaceScreen() {
   const params = useLocalSearchParams<{ projectId: string }>();
-  const { getProjectById } = useProjects();
+  const { getProjectById, isLoadingProjects } = useProjects();
 
   const project = getProjectById(params.projectId);
+
+  if (isLoadingProjects) {
+    return (
+        <SafeAreaView style={styles.safeArea}>
+        <View style={styles.notFoundContainer}>
+            <Text style={styles.title}>Loading project...</Text>
+            <Text style={styles.emptyText}>Checking saved Loopr projects on this device.</Text>
+        </View>
+        </SafeAreaView>
+    );
+  }
 
   if (!project) {
     return (
