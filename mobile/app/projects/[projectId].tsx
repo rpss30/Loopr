@@ -1,5 +1,7 @@
+import { Audio } from 'expo-av';
 import { Link, useLocalSearchParams } from 'expo-router';
-import { Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { Alert, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { useProjects } from '../../features/projects/project-store';
 import { useTracks } from '../../features/tracks/track-store';
@@ -8,11 +10,162 @@ import { LoopTrack } from '../../types/track';
 export default function LoopWorkspaceScreen() {
   const params = useLocalSearchParams<{ projectId: string }>();
   const { getProjectById, isLoadingProjects } = useProjects();
-  const { getTracksByProjectId, isLoadingTracks, trackStorageError } = useTracks();
+  const { addRecordedTrack, getTracksByProjectId, isLoadingTracks, trackStorageError } =
+    useTracks();
+
+  const [recording, setRecording] = useState<Audio.Recording | null>(null);
+  const [recordingDurationMs, setRecordingDurationMs] = useState(0);
+  const [permissionResponse, requestPermission] = Audio.usePermissions();
+
+  const soundRef = useRef<Audio.Sound | null>(null);
+  const [playingTrackId, setPlayingTrackId] = useState<string | null>(null);
 
   const project = getProjectById(params.projectId);
   const tracks = project ? getTracksByProjectId(project.id) : [];
   const isLoading = isLoadingProjects || isLoadingTracks;
+  const isRecording = recording !== null;
+
+  useEffect(() => {
+    return () => {
+      if (soundRef.current) {
+        void soundRef.current.unloadAsync();
+        soundRef.current = null;
+      }
+    };
+  }, []);
+
+  const startRecording = async () => {
+    if (!project || recording) {
+      return;
+    }
+
+    await stopPlayback();
+
+    try {
+      let permission = permissionResponse;
+
+      if (permission?.status !== 'granted') {
+        permission = await requestPermission();
+      }
+
+      if (!permission?.granted) {
+        Alert.alert(
+          'Microphone permission needed',
+          'Loopr needs microphone access to record loop tracks.'
+        );
+        return;
+      }
+
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: true,
+        playsInSilentModeIOS: true,
+      });
+
+      setRecordingDurationMs(0);
+
+      const recordingResult = await Audio.Recording.createAsync(
+        Audio.RecordingOptionsPresets.HIGH_QUALITY,
+        (status) => {
+          setRecordingDurationMs(status.durationMillis ?? 0);
+        },
+        250
+      );
+
+      setRecording(recordingResult.recording);
+    } catch {
+      Alert.alert('Recording failed', 'Could not start recording. Try again.');
+    }
+  };
+
+  const stopRecording = async () => {
+    if (!project || !recording) {
+      return;
+    }
+
+    const activeRecording = recording;
+    setRecording(null);
+
+    try {
+      await activeRecording.stopAndUnloadAsync();
+
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: false,
+      });
+
+      const localUri = activeRecording.getURI();
+
+      if (!localUri) {
+        Alert.alert('Recording unavailable', 'Loopr could not find the saved recording file.');
+        return;
+      }
+
+      addRecordedTrack({
+        projectId: project.id,
+        localUri,
+        durationMs: Math.max(recordingDurationMs, 1000),
+      });
+
+      setRecordingDurationMs(0);
+    } catch {
+      Alert.alert('Recording failed', 'Could not stop and save the recording.');
+      setRecordingDurationMs(0);
+    }
+  };
+
+  const stopPlayback = async () => {
+    if (!soundRef.current) {
+      setPlayingTrackId(null);
+      return;
+    }
+
+    const activeSound = soundRef.current;
+    soundRef.current = null;
+    setPlayingTrackId(null);
+
+    await activeSound.unloadAsync();
+  };
+
+  const playTrack = async (track: LoopTrack) => {
+    if (!track.localUri) {
+      Alert.alert('No audio file', 'This demo track does not have a recorded audio file yet.');
+      return;
+    }
+
+    try {
+      if (playingTrackId === track.id) {
+        await stopPlayback();
+        return;
+      }
+
+      await stopPlayback();
+
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: false,
+        playsInSilentModeIOS: true,
+      });
+
+      const { sound } = await Audio.Sound.createAsync(
+        { uri: track.localUri },
+        {
+          shouldPlay: true,
+          volume: track.volume,
+        },
+        (status) => {
+          if (status.isLoaded && status.didJustFinish) {
+            void sound.unloadAsync();
+            soundRef.current = null;
+            setPlayingTrackId(null);
+          }
+        }
+      );
+
+      soundRef.current = sound;
+      setPlayingTrackId(track.id);
+    } catch {
+      Alert.alert('Playback failed', 'Could not play this recording.');
+      setPlayingTrackId(null);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -65,18 +218,22 @@ export default function LoopWorkspaceScreen() {
           <Text style={styles.sectionTitle}>Session controls</Text>
 
           <View style={styles.transportRow}>
-            <Pressable style={styles.disabledButton}>
-              <Text style={styles.disabledButtonText}>Record</Text>
+            <Pressable
+              style={[styles.recordButton, isRecording ? styles.stopButton : null]}
+              onPress={isRecording ? stopRecording : startRecording}
+            >
+              <Text style={styles.recordButtonText}>{isRecording ? 'Stop & save' : 'Record'}</Text>
             </Pressable>
 
             <Pressable style={styles.disabledButton}>
-              <Text style={styles.disabledButtonText}>Play</Text>
+              <Text style={styles.disabledButtonText}>Play next</Text>
             </Pressable>
           </View>
 
           <Text style={styles.helperText}>
-            Recording and playback will be added next. This screen now has real track metadata
-            ready for recorded audio.
+            {isRecording
+              ? `Recording... ${formatDuration(recordingDurationMs)}`
+              : 'Record a short idea. Playback will be added in the next step.'}
           </Text>
         </View>
 
@@ -86,15 +243,21 @@ export default function LoopWorkspaceScreen() {
           {tracks.length > 0 ? (
             <View style={styles.trackList}>
               {tracks.map((track) => (
-                <TrackCard key={track.id} track={track} />
+                <TrackCard
+                  key={track.id}
+                  track={track}
+                  isPlaying={playingTrackId === track.id}
+                  onPlayPress={() => {
+                    void playTrack(track);
+                  }}
+                />
               ))}
             </View>
           ) : (
             <>
               <Text style={styles.emptyTitle}>No tracks yet</Text>
               <Text style={styles.emptyText}>
-                Soon you’ll be able to record guitar, vocals, percussion, or imported clips into
-                this workspace.
+                Tap Record to capture your first guitar, vocal, percussion, or melody idea.
               </Text>
             </>
           )}
@@ -104,7 +267,17 @@ export default function LoopWorkspaceScreen() {
   );
 }
 
-function TrackCard({ track }: { track: LoopTrack }) {
+function TrackCard({
+  track,
+  isPlaying,
+  onPlayPress,
+}: {
+  track: LoopTrack;
+  isPlaying: boolean;
+  onPlayPress: () => void;
+}) {
+  const hasAudio = Boolean(track.localUri);
+
   return (
     <View style={styles.trackCard}>
       <View style={styles.trackInfo}>
@@ -112,9 +285,25 @@ function TrackCard({ track }: { track: LoopTrack }) {
         <Text style={styles.trackMeta}>
           {formatDuration(track.durationMs)} · volume {Math.round(track.volume * 100)}%
         </Text>
+
+        <Pressable
+          style={[styles.trackPlayButton, !hasAudio ? styles.trackPlayButtonDisabled : null]}
+          onPress={onPlayPress}
+          disabled={!hasAudio}
+        >
+          <Text
+            style={[
+              styles.trackPlayButtonText,
+              !hasAudio ? styles.trackPlayButtonTextDisabled : null,
+            ]}
+          >
+            {!hasAudio ? 'No audio yet' : isPlaying ? 'Stop' : 'Play'}
+          </Text>
+        </Pressable>
       </View>
 
       <View style={styles.trackBadges}>
+        {track.localUri ? <Text style={styles.recordedBadge}>Recorded</Text> : null}
         {track.muted ? <Text style={styles.mutedBadge}>Muted</Text> : null}
         {track.solo ? <Text style={styles.soloBadge}>Solo</Text> : null}
       </View>
@@ -198,6 +387,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 12,
   },
+  recordButton: {
+    flex: 1,
+    backgroundColor: '#38BDF8',
+    borderRadius: 16,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  stopButton: {
+    backgroundColor: '#F97316',
+  },
+  recordButtonText: {
+    color: '#082F49',
+    fontSize: 16,
+    fontWeight: '800',
+  },
   disabledButton: {
     flex: 1,
     backgroundColor: '#1F2937',
@@ -253,6 +457,16 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     gap: 6,
   },
+  recordedBadge: {
+    color: '#BBF7D0',
+    backgroundColor: '#14532D',
+    borderRadius: 999,
+    overflow: 'hidden',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    fontSize: 12,
+    fontWeight: '800',
+  },
   mutedBadge: {
     color: '#FCA5A5',
     backgroundColor: '#450A0A',
@@ -293,5 +507,24 @@ const styles = StyleSheet.create({
     color: '#082F49',
     fontSize: 16,
     fontWeight: '800',
+  },
+  trackPlayButton: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#38BDF8',
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    marginTop: 8,
+  },
+  trackPlayButtonDisabled: {
+    backgroundColor: '#1F2937',
+  },
+  trackPlayButtonText: {
+    color: '#082F49',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  trackPlayButtonTextDisabled: {
+    color: '#64748B',
   },
 });

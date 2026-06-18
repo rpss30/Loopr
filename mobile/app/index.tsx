@@ -24,21 +24,21 @@ export default function ProjectListScreen() {
         </View>
 
         {isLoadingProjects ? (
-        <View style={styles.noticeCard}>
+          <View style={styles.noticeCard}>
             <Text style={styles.noticeText}>Loading saved projects...</Text>
-        </View>
+          </View>
         ) : null}
 
         {projectStorageError ? (
-        <View style={styles.errorCard}>
+          <View style={styles.errorCard}>
             <Text style={styles.errorText}>{projectStorageError}</Text>
-        </View>
+          </View>
         ) : null}
 
         {trackStorageError ? (
-        <View style={styles.errorCard}>
+          <View style={styles.errorCard}>
             <Text style={styles.errorText}>{trackStorageError}</Text>
-        </View>
+          </View>
         ) : null}
 
         <View style={styles.sectionHeader}>
@@ -55,10 +55,13 @@ export default function ProjectListScreen() {
                 <View>
                   <Text style={styles.projectName}>{project.name}</Text>
                   <Text style={styles.projectMeta}>
-                    {project.bpm} BPM · {isLoadingTracks ? project.trackCount : getTrackCountForProject(project.id)}{' '}
-                    {(isLoadingTracks ? project.trackCount : getTrackCountForProject(project.id)) === 1
-                        ? 'track'
-                        : 'tracks'}
+                    {project.bpm} BPM ·{' '}
+                    {isLoadingTracks ? project.trackCount : getTrackCountForProject(project.id)}{' '}
+                    {(isLoadingTracks
+                      ? project.trackCount
+                      : getTrackCountForProject(project.id)) === 1
+                      ? 'track'
+                      : 'tracks'}
                   </Text>
                 </View>
 
