@@ -23,6 +23,7 @@ type TrackContextValue = {
   trackStorageError: string | null;
   addRecordedTrack: (input: AddRecordedTrackInput) => LoopTrack;
   toggleTrackMuted: (trackId: string) => void;
+  renameTrack: (trackId: string, name: string) => void;
   getTracksByProjectId: (projectId: string) => LoopTrack[];
   getTrackCountForProject: (projectId: string) => number;
 };
@@ -192,6 +193,30 @@ export function TrackProvider({ children }: PropsWithChildren) {
     );
   }, []);
 
+  const renameTrack = useCallback((trackId: string, name: string) => {
+    const trimmedName = name.trim();
+
+    if (!trimmedName) {
+      return;
+    }
+
+    const now = new Date().toISOString();
+
+    setTracks((currentTracks) =>
+      currentTracks.map((track) => {
+        if (track.id !== trackId) {
+          return track;
+        }
+
+        return {
+          ...track,
+          name: trimmedName,
+          updatedAt: now,
+        };
+      })
+    );
+  }, []);
+
   const getTracksByProjectId = useCallback(
     (projectId: string) => {
       return tracks
@@ -215,6 +240,7 @@ export function TrackProvider({ children }: PropsWithChildren) {
       trackStorageError,
       addRecordedTrack,
       toggleTrackMuted,
+      renameTrack,
       getTracksByProjectId,
       getTrackCountForProject,
     }),
@@ -223,6 +249,7 @@ export function TrackProvider({ children }: PropsWithChildren) {
       getTrackCountForProject,
       getTracksByProjectId,
       isLoadingTracks,
+      renameTrack,
       toggleTrackMuted,
       trackStorageError,
       tracks,
