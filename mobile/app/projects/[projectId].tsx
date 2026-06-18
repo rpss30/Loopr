@@ -1,6 +1,6 @@
 import { Audio } from 'expo-av';
 import { Link, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Alert, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { useProjects } from '../../features/projects/project-store';
@@ -15,16 +15,30 @@ export default function LoopWorkspaceScreen() {
   const [recording, setRecording] = useState<Audio.Recording | null>(null);
   const [recordingDurationMs, setRecordingDurationMs] = useState(0);
   const [permissionResponse, requestPermission] = Audio.usePermissions();
+  
+  const soundRef = useRef<Audio.Sound | null>(null);
+  const [playingTrackId, setPlayingTrackId] = useState<string | null>(null);
 
   const project = getProjectById(params.projectId);
   const tracks = project ? getTracksByProjectId(project.id) : [];
   const isLoading = isLoadingProjects || isLoadingTracks;
   const isRecording = recording !== null;
 
+  useEffect(() => {
+    return () => {
+        if (soundRef.current) {
+        void soundRef.current.unloadAsync();
+        soundRef.current = null;
+        }
+    };
+    }, []);
+
   const startRecording = async () => {
     if (!project || recording) {
       return;
     }
+
+    await stopPlayback();
 
     try {
       let permission = permissionResponse;
@@ -96,6 +110,61 @@ export default function LoopWorkspaceScreen() {
       setRecordingDurationMs(0);
     }
   };
+
+  const stopPlayback = async () => {
+    if (!soundRef.current) {
+        setPlayingTrackId(null);
+        return;
+    }
+
+    const activeSound = soundRef.current;
+    soundRef.current = null;
+    setPlayingTrackId(null);
+
+    await activeSound.unloadAsync();
+    };
+
+    const playTrack = async (track: LoopTrack) => {
+    if (!track.localUri) {
+        Alert.alert('No audio file', 'This demo track does not have a recorded audio file yet.');
+        return;
+    }
+
+    try {
+        if (playingTrackId === track.id) {
+        await stopPlayback();
+        return;
+        }
+
+        await stopPlayback();
+
+        await Audio.setAudioModeAsync({
+        allowsRecordingIOS: false,
+        playsInSilentModeIOS: true,
+        });
+
+        const { sound } = await Audio.Sound.createAsync(
+        { uri: track.localUri },
+        {
+            shouldPlay: true,
+            volume: track.volume,
+        },
+        (status) => {
+            if (status.isLoaded && status.didJustFinish) {
+            void sound.unloadAsync();
+            soundRef.current = null;
+            setPlayingTrackId(null);
+            }
+        }
+        );
+
+        soundRef.current = sound;
+        setPlayingTrackId(track.id);
+    } catch {
+        Alert.alert('Playback failed', 'Could not play this recording.');
+        setPlayingTrackId(null);
+    }
+    };
 
   if (isLoading) {
     return (
@@ -175,8 +244,15 @@ export default function LoopWorkspaceScreen() {
           {tracks.length > 0 ? (
             <View style={styles.trackList}>
               {tracks.map((track) => (
-                <TrackCard key={track.id} track={track} />
-              ))}
+                <TrackCard
+                    key={track.id}
+                    track={track}
+                    isPlaying={playingTrackId === track.id}
+                    onPlayPress={() => {
+                    void playTrack(track);
+                    }}
+                />
+                ))}
             </View>
           ) : (
             <>
@@ -192,7 +268,17 @@ export default function LoopWorkspaceScreen() {
   );
 }
 
-function TrackCard({ track }: { track: LoopTrack }) {
+function TrackCard({
+  track,
+  isPlaying,
+  onPlayPress,
+}: {
+  track: LoopTrack;
+  isPlaying: boolean;
+  onPlayPress: () => void;
+}) {
+  const hasAudio = Boolean(track.localUri);
+
   return (
     <View style={styles.trackCard}>
       <View style={styles.trackInfo}>
@@ -200,6 +286,21 @@ function TrackCard({ track }: { track: LoopTrack }) {
         <Text style={styles.trackMeta}>
           {formatDuration(track.durationMs)} · volume {Math.round(track.volume * 100)}%
         </Text>
+
+        <Pressable
+          style={[styles.trackPlayButton, !hasAudio ? styles.trackPlayButtonDisabled : null]}
+          onPress={onPlayPress}
+          disabled={!hasAudio}
+        >
+          <Text
+            style={[
+              styles.trackPlayButtonText,
+              !hasAudio ? styles.trackPlayButtonTextDisabled : null,
+            ]}
+          >
+            {!hasAudio ? 'No audio yet' : isPlaying ? 'Stop' : 'Play'}
+          </Text>
+        </Pressable>
       </View>
 
       <View style={styles.trackBadges}>
@@ -408,4 +509,23 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '800',
   },
+  trackPlayButton: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#38BDF8',
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    marginTop: 8,
+    },
+    trackPlayButtonDisabled: {
+    backgroundColor: '#1F2937',
+    },
+    trackPlayButtonText: {
+    color: '#082F49',
+    fontSize: 13,
+    fontWeight: '800',
+    },
+    trackPlayButtonTextDisabled: {
+    color: '#64748B',
+    },
 });
