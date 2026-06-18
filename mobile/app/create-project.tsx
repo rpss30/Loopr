@@ -2,7 +2,10 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { Alert, Pressable, SafeAreaView, StyleSheet, Text, TextInput, View } from 'react-native';
 
+import { useProjects } from '../features/projects/project-store';
+
 export default function CreateProjectScreen() {
+  const { createProject } = useProjects();
   const [name, setName] = useState('');
   const [bpm, setBpm] = useState('100');
 
@@ -20,16 +23,12 @@ export default function CreateProjectScreen() {
       return;
     }
 
-    const projectId = `local-${Date.now()}`;
-
-    router.replace({
-      pathname: '/projects/[projectId]',
-      params: {
-        projectId,
-        name: trimmedName,
-        bpm: String(parsedBpm),
-      },
+    const project = createProject({
+      name: trimmedName,
+      bpm: parsedBpm,
     });
+
+    router.replace(`/projects/${project.id}`);
   };
 
   return (

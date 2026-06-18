@@ -1,22 +1,11 @@
 import { Link, router } from 'expo-router';
 import { Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-const mockProjects = [
-  {
-    id: 'demo-project-1',
-    name: 'Acoustic Groove',
-    bpm: 92,
-    trackCount: 3,
-  },
-  {
-    id: 'demo-project-2',
-    name: 'Late Night Loop',
-    bpm: 110,
-    trackCount: 2,
-  },
-];
+import { useProjects } from '../features/projects/project-store';
 
 export default function ProjectListScreen() {
+  const { projects } = useProjects();
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.container}>
@@ -34,17 +23,20 @@ export default function ProjectListScreen() {
 
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Recent Projects</Text>
-          <Text style={styles.sectionCaption}>Mock data for now</Text>
+          <Text style={styles.sectionCaption}>
+            {projects.length} {projects.length === 1 ? 'project' : 'projects'}
+          </Text>
         </View>
 
         <View style={styles.projectList}>
-          {mockProjects.map((project) => (
+          {projects.map((project) => (
             <Link key={project.id} href={`/projects/${project.id}`} asChild>
               <Pressable style={styles.projectCard}>
                 <View>
                   <Text style={styles.projectName}>{project.name}</Text>
                   <Text style={styles.projectMeta}>
-                    {project.bpm} BPM · {project.trackCount} tracks
+                    {project.bpm} BPM · {project.trackCount}{' '}
+                    {project.trackCount === 1 ? 'track' : 'tracks'}
                   </Text>
                 </View>
 

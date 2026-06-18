@@ -1,23 +1,43 @@
-import { useLocalSearchParams } from 'expo-router';
+import { Link, useLocalSearchParams } from 'expo-router';
 import { Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-export default function LoopWorkspaceScreen() {
-  const params = useLocalSearchParams<{
-    projectId: string;
-    name?: string;
-    bpm?: string;
-  }>();
+import { useProjects } from '../../features/projects/project-store';
 
-  const projectName = params.name ?? getMockProjectName(params.projectId);
-  const bpm = params.bpm ?? getMockProjectBpm(params.projectId);
+export default function LoopWorkspaceScreen() {
+  const params = useLocalSearchParams<{ projectId: string }>();
+  const { getProjectById } = useProjects();
+
+  const project = getProjectById(params.projectId);
+
+  if (!project) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.notFoundContainer}>
+          <Text style={styles.title}>Project not found</Text>
+          <Text style={styles.emptyText}>
+            This project may have been removed or the app state may have reset.
+          </Text>
+
+          <Link href="/" asChild>
+            <Pressable style={styles.primaryButton}>
+              <Text style={styles.primaryButtonText}>Back to projects</Text>
+            </Pressable>
+          </Link>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.container}>
         <View style={styles.projectHeader}>
           <Text style={styles.eyebrow}>Loop Workspace</Text>
-          <Text style={styles.title}>{projectName}</Text>
-          <Text style={styles.subtitle}>{bpm} BPM · 0 recorded tracks</Text>
+          <Text style={styles.title}>{project.name}</Text>
+          <Text style={styles.subtitle}>
+            {project.bpm} BPM · {project.trackCount} recorded{' '}
+            {project.trackCount === 1 ? 'track' : 'tracks'}
+          </Text>
         </View>
 
         <View style={styles.transportCard}>
@@ -34,7 +54,8 @@ export default function LoopWorkspaceScreen() {
           </View>
 
           <Text style={styles.helperText}>
-            Recording and playback will be added after the navigation and project screens are stable.
+            Recording and playback will be added after the project screens and local storage are
+            stable.
           </Text>
         </View>
 
@@ -51,30 +72,6 @@ export default function LoopWorkspaceScreen() {
   );
 }
 
-function getMockProjectName(projectId?: string) {
-  if (projectId === 'demo-project-1') {
-    return 'Acoustic Groove';
-  }
-
-  if (projectId === 'demo-project-2') {
-    return 'Late Night Loop';
-  }
-
-  return 'Untitled Loop';
-}
-
-function getMockProjectBpm(projectId?: string) {
-  if (projectId === 'demo-project-1') {
-    return '92';
-  }
-
-  if (projectId === 'demo-project-2') {
-    return '110';
-  }
-
-  return '100';
-}
-
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
@@ -83,6 +80,12 @@ const styles = StyleSheet.create({
   container: {
     padding: 20,
     gap: 18,
+  },
+  notFoundContainer: {
+    flex: 1,
+    padding: 20,
+    justifyContent: 'center',
+    gap: 16,
   },
   projectHeader: {
     backgroundColor: '#111827',
@@ -159,5 +162,16 @@ const styles = StyleSheet.create({
     color: '#94A3B8',
     fontSize: 15,
     lineHeight: 22,
+  },
+  primaryButton: {
+    backgroundColor: '#38BDF8',
+    borderRadius: 18,
+    paddingVertical: 15,
+    alignItems: 'center',
+  },
+  primaryButtonText: {
+    color: '#082F49',
+    fontSize: 16,
+    fontWeight: '800',
   },
 });
