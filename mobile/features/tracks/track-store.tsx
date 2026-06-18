@@ -146,13 +146,13 @@ export function TrackProvider({ children }: PropsWithChildren) {
 
   const addRecordedTrack = useCallback(
     (input: AddRecordedTrackInput) => {
-        const now = new Date().toISOString();
+      const now = new Date().toISOString();
 
-        const projectTrackCount = tracks.filter(
+      const projectTrackCount = tracks.filter(
         (track) => track.projectId === input.projectId
-        ).length;
+      ).length;
 
-        const track: LoopTrack = {
+      const track: LoopTrack = {
         id: `track-${Date.now()}`,
         projectId: input.projectId,
         name: `Track ${projectTrackCount + 1}`,
@@ -164,14 +164,14 @@ export function TrackProvider({ children }: PropsWithChildren) {
         orderIndex: projectTrackCount,
         createdAt: now,
         updatedAt: now,
-        };
+      };
 
-        setTracks((currentTracks) => [...currentTracks, track]);
+      setTracks((currentTracks) => [...currentTracks, track]);
 
-        return track;
+      return track;
     },
     [tracks]
-    );
+  );
 
   const getTracksByProjectId = useCallback(
     (projectId: string) => {
@@ -191,22 +191,22 @@ export function TrackProvider({ children }: PropsWithChildren) {
 
   const value = useMemo<TrackContextValue>(
     () => ({
-        tracks,
-        isLoadingTracks,
-        trackStorageError,
-        addRecordedTrack,
-        getTracksByProjectId,
-        getTrackCountForProject,
+      tracks,
+      isLoadingTracks,
+      trackStorageError,
+      addRecordedTrack,
+      getTracksByProjectId,
+      getTrackCountForProject,
     }),
     [
-        addRecordedTrack,
-        getTrackCountForProject,
-        getTracksByProjectId,
-        isLoadingTracks,
-        trackStorageError,
-        tracks,
+      addRecordedTrack,
+      getTrackCountForProject,
+      getTracksByProjectId,
+      isLoadingTracks,
+      trackStorageError,
+      tracks,
     ]
-    );
+  );
 
   return <TrackContext.Provider value={value}>{children}</TrackContext.Provider>;
 }

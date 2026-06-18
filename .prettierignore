@@ -1,0 +1,15 @@
+node_modules
+.expo
+dist
+build
+coverage
+.mobile-build
+ios
+android
+
+mobile/node_modules
+mobile/.expo
+mobile/dist
+mobile/build
+mobile/coverage
+mobile/package-lock.json

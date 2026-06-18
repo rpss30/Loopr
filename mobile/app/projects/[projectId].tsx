@@ -10,12 +10,13 @@ import { LoopTrack } from '../../types/track';
 export default function LoopWorkspaceScreen() {
   const params = useLocalSearchParams<{ projectId: string }>();
   const { getProjectById, isLoadingProjects } = useProjects();
-  const { addRecordedTrack, getTracksByProjectId, isLoadingTracks, trackStorageError } = useTracks();
+  const { addRecordedTrack, getTracksByProjectId, isLoadingTracks, trackStorageError } =
+    useTracks();
 
   const [recording, setRecording] = useState<Audio.Recording | null>(null);
   const [recordingDurationMs, setRecordingDurationMs] = useState(0);
   const [permissionResponse, requestPermission] = Audio.usePermissions();
-  
+
   const soundRef = useRef<Audio.Sound | null>(null);
   const [playingTrackId, setPlayingTrackId] = useState<string | null>(null);
 
@@ -26,12 +27,12 @@ export default function LoopWorkspaceScreen() {
 
   useEffect(() => {
     return () => {
-        if (soundRef.current) {
+      if (soundRef.current) {
         void soundRef.current.unloadAsync();
         soundRef.current = null;
-        }
+      }
     };
-    }, []);
+  }, []);
 
   const startRecording = async () => {
     if (!project || recording) {
@@ -113,8 +114,8 @@ export default function LoopWorkspaceScreen() {
 
   const stopPlayback = async () => {
     if (!soundRef.current) {
-        setPlayingTrackId(null);
-        return;
+      setPlayingTrackId(null);
+      return;
     }
 
     const activeSound = soundRef.current;
@@ -122,49 +123,49 @@ export default function LoopWorkspaceScreen() {
     setPlayingTrackId(null);
 
     await activeSound.unloadAsync();
-    };
+  };
 
-    const playTrack = async (track: LoopTrack) => {
+  const playTrack = async (track: LoopTrack) => {
     if (!track.localUri) {
-        Alert.alert('No audio file', 'This demo track does not have a recorded audio file yet.');
-        return;
+      Alert.alert('No audio file', 'This demo track does not have a recorded audio file yet.');
+      return;
     }
 
     try {
-        if (playingTrackId === track.id) {
+      if (playingTrackId === track.id) {
         await stopPlayback();
         return;
-        }
+      }
 
-        await stopPlayback();
+      await stopPlayback();
 
-        await Audio.setAudioModeAsync({
+      await Audio.setAudioModeAsync({
         allowsRecordingIOS: false,
         playsInSilentModeIOS: true,
-        });
+      });
 
-        const { sound } = await Audio.Sound.createAsync(
+      const { sound } = await Audio.Sound.createAsync(
         { uri: track.localUri },
         {
-            shouldPlay: true,
-            volume: track.volume,
+          shouldPlay: true,
+          volume: track.volume,
         },
         (status) => {
-            if (status.isLoaded && status.didJustFinish) {
+          if (status.isLoaded && status.didJustFinish) {
             void sound.unloadAsync();
             soundRef.current = null;
             setPlayingTrackId(null);
-            }
+          }
         }
-        );
+      );
 
-        soundRef.current = sound;
-        setPlayingTrackId(track.id);
+      soundRef.current = sound;
+      setPlayingTrackId(track.id);
     } catch {
-        Alert.alert('Playback failed', 'Could not play this recording.');
-        setPlayingTrackId(null);
+      Alert.alert('Playback failed', 'Could not play this recording.');
+      setPlayingTrackId(null);
     }
-    };
+  };
 
   if (isLoading) {
     return (
@@ -221,9 +222,7 @@ export default function LoopWorkspaceScreen() {
               style={[styles.recordButton, isRecording ? styles.stopButton : null]}
               onPress={isRecording ? stopRecording : startRecording}
             >
-              <Text style={styles.recordButtonText}>
-                {isRecording ? 'Stop & save' : 'Record'}
-              </Text>
+              <Text style={styles.recordButtonText}>{isRecording ? 'Stop & save' : 'Record'}</Text>
             </Pressable>
 
             <Pressable style={styles.disabledButton}>
@@ -245,14 +244,14 @@ export default function LoopWorkspaceScreen() {
             <View style={styles.trackList}>
               {tracks.map((track) => (
                 <TrackCard
-                    key={track.id}
-                    track={track}
-                    isPlaying={playingTrackId === track.id}
-                    onPlayPress={() => {
+                  key={track.id}
+                  track={track}
+                  isPlaying={playingTrackId === track.id}
+                  onPlayPress={() => {
                     void playTrack(track);
-                    }}
+                  }}
                 />
-                ))}
+              ))}
             </View>
           ) : (
             <>
@@ -516,16 +515,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 8,
     marginTop: 8,
-    },
-    trackPlayButtonDisabled: {
+  },
+  trackPlayButtonDisabled: {
     backgroundColor: '#1F2937',
-    },
-    trackPlayButtonText: {
+  },
+  trackPlayButtonText: {
     color: '#082F49',
     fontSize: 13,
     fontWeight: '800',
-    },
-    trackPlayButtonTextDisabled: {
+  },
+  trackPlayButtonTextDisabled: {
     color: '#64748B',
-    },
+  },
 });
