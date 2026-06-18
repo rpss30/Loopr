@@ -10,8 +10,13 @@ import { LoopTrack } from '../../types/track';
 export default function LoopWorkspaceScreen() {
   const params = useLocalSearchParams<{ projectId: string }>();
   const { getProjectById, isLoadingProjects } = useProjects();
-  const { addRecordedTrack, getTracksByProjectId, isLoadingTracks, trackStorageError } =
-    useTracks();
+  const {
+    addRecordedTrack,
+    getTracksByProjectId,
+    isLoadingTracks,
+    toggleTrackMuted,
+    trackStorageError,
+  } = useTracks();
 
   const [recording, setRecording] = useState<Audio.Recording | null>(null);
   const [recordingDurationMs, setRecordingDurationMs] = useState(0);
@@ -131,6 +136,11 @@ export default function LoopWorkspaceScreen() {
       return;
     }
 
+    if (track.muted) {
+      Alert.alert('Track muted', 'Unmute this track before playing it.');
+      return;
+    }
+
     try {
       if (playingTrackId === track.id) {
         await stopPlayback();
@@ -165,6 +175,14 @@ export default function LoopWorkspaceScreen() {
       Alert.alert('Playback failed', 'Could not play this recording.');
       setPlayingTrackId(null);
     }
+  };
+
+  const handleMutePress = async (track: LoopTrack) => {
+    if (playingTrackId === track.id) {
+      await stopPlayback();
+    }
+
+    toggleTrackMuted(track.id);
   };
 
   if (isLoading) {
@@ -247,6 +265,9 @@ export default function LoopWorkspaceScreen() {
                   key={track.id}
                   track={track}
                   isPlaying={playingTrackId === track.id}
+                  onMutePress={() => {
+                    void handleMutePress(track);
+                  }}
                   onPlayPress={() => {
                     void playTrack(track);
                   }}
@@ -270,10 +291,12 @@ export default function LoopWorkspaceScreen() {
 function TrackCard({
   track,
   isPlaying,
+  onMutePress,
   onPlayPress,
 }: {
   track: LoopTrack;
   isPlaying: boolean;
+  onMutePress: () => void;
   onPlayPress: () => void;
 }) {
   const hasAudio = Boolean(track.localUri);
@@ -286,20 +309,39 @@ function TrackCard({
           {formatDuration(track.durationMs)} · volume {Math.round(track.volume * 100)}%
         </Text>
 
-        <Pressable
-          style={[styles.trackPlayButton, !hasAudio ? styles.trackPlayButtonDisabled : null]}
-          onPress={onPlayPress}
-          disabled={!hasAudio}
-        >
-          <Text
+        <View style={styles.trackControls}>
+          <Pressable
             style={[
-              styles.trackPlayButtonText,
-              !hasAudio ? styles.trackPlayButtonTextDisabled : null,
+              styles.trackPlayButton,
+              !hasAudio || track.muted ? styles.trackPlayButtonDisabled : null,
             ]}
+            onPress={onPlayPress}
+            disabled={!hasAudio || track.muted}
           >
-            {!hasAudio ? 'No audio yet' : isPlaying ? 'Stop' : 'Play'}
-          </Text>
-        </Pressable>
+            <Text
+              style={[
+                styles.trackPlayButtonText,
+                !hasAudio || track.muted ? styles.trackPlayButtonTextDisabled : null,
+              ]}
+            >
+              {!hasAudio ? 'No audio yet' : track.muted ? 'Muted' : isPlaying ? 'Stop' : 'Play'}
+            </Text>
+          </Pressable>
+
+          <Pressable
+            style={[styles.trackMuteButton, track.muted ? styles.trackMuteButtonActive : null]}
+            onPress={onMutePress}
+          >
+            <Text
+              style={[
+                styles.trackMuteButtonText,
+                track.muted ? styles.trackMuteButtonTextActive : null,
+              ]}
+            >
+              {track.muted ? 'Unmute' : 'Mute'}
+            </Text>
+          </Pressable>
+        </View>
       </View>
 
       <View style={styles.trackBadges}>
@@ -453,6 +495,12 @@ const styles = StyleSheet.create({
     color: '#94A3B8',
     fontSize: 14,
   },
+  trackControls: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 8,
+  },
   trackBadges: {
     alignItems: 'flex-end',
     gap: 6,
@@ -526,5 +574,23 @@ const styles = StyleSheet.create({
   },
   trackPlayButtonTextDisabled: {
     color: '#64748B',
+  },
+  trackMuteButton: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#1F2937',
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  trackMuteButtonActive: {
+    backgroundColor: '#450A0A',
+  },
+  trackMuteButtonText: {
+    color: '#CBD5E1',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  trackMuteButtonTextActive: {
+    color: '#FCA5A5',
   },
 });
