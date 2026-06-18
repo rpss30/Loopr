@@ -2,9 +2,11 @@ import { Link, router } from 'expo-router';
 import { Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { useProjects } from '../features/projects/project-store';
+import { useTracks } from '../features/tracks/track-store';
 
 export default function ProjectListScreen() {
   const { projects, isLoadingProjects, projectStorageError } = useProjects();
+  const { getTrackCountForProject, isLoadingTracks, trackStorageError } = useTracks();
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -33,6 +35,12 @@ export default function ProjectListScreen() {
         </View>
         ) : null}
 
+        {trackStorageError ? (
+        <View style={styles.errorCard}>
+            <Text style={styles.errorText}>{trackStorageError}</Text>
+        </View>
+        ) : null}
+
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Recent Projects</Text>
           <Text style={styles.sectionCaption}>
@@ -47,8 +55,10 @@ export default function ProjectListScreen() {
                 <View>
                   <Text style={styles.projectName}>{project.name}</Text>
                   <Text style={styles.projectMeta}>
-                    {project.bpm} BPM · {project.trackCount}{' '}
-                    {project.trackCount === 1 ? 'track' : 'tracks'}
+                    {project.bpm} BPM · {isLoadingTracks ? project.trackCount : getTrackCountForProject(project.id)}{' '}
+                    {(isLoadingTracks ? project.trackCount : getTrackCountForProject(project.id)) === 1
+                        ? 'track'
+                        : 'tracks'}
                   </Text>
                 </View>
 
