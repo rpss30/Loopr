@@ -11,10 +11,17 @@ import {
 import { LoopTrack } from '../../types/track';
 import { loadTracksFromStorage, saveTracksToStorage } from './track-storage';
 
+type AddRecordedTrackInput = {
+  projectId: string;
+  localUri: string;
+  durationMs: number;
+};
+
 type TrackContextValue = {
   tracks: LoopTrack[];
   isLoadingTracks: boolean;
   trackStorageError: string | null;
+  addRecordedTrack: (input: AddRecordedTrackInput) => LoopTrack;
   getTracksByProjectId: (projectId: string) => LoopTrack[];
   getTrackCountForProject: (projectId: string) => number;
 };
@@ -137,6 +144,35 @@ export function TrackProvider({ children }: PropsWithChildren) {
     });
   }, [isLoadingTracks, tracks]);
 
+  const addRecordedTrack = useCallback(
+    (input: AddRecordedTrackInput) => {
+        const now = new Date().toISOString();
+
+        const projectTrackCount = tracks.filter(
+        (track) => track.projectId === input.projectId
+        ).length;
+
+        const track: LoopTrack = {
+        id: `track-${Date.now()}`,
+        projectId: input.projectId,
+        name: `Track ${projectTrackCount + 1}`,
+        localUri: input.localUri,
+        durationMs: input.durationMs,
+        volume: 1,
+        muted: false,
+        solo: false,
+        orderIndex: projectTrackCount,
+        createdAt: now,
+        updatedAt: now,
+        };
+
+        setTracks((currentTracks) => [...currentTracks, track]);
+
+        return track;
+    },
+    [tracks]
+    );
+
   const getTracksByProjectId = useCallback(
     (projectId: string) => {
       return tracks
@@ -155,14 +191,22 @@ export function TrackProvider({ children }: PropsWithChildren) {
 
   const value = useMemo<TrackContextValue>(
     () => ({
-      tracks,
-      isLoadingTracks,
-      trackStorageError,
-      getTracksByProjectId,
-      getTrackCountForProject,
+        tracks,
+        isLoadingTracks,
+        trackStorageError,
+        addRecordedTrack,
+        getTracksByProjectId,
+        getTrackCountForProject,
     }),
-    [getTrackCountForProject, getTracksByProjectId, isLoadingTracks, trackStorageError, tracks]
-  );
+    [
+        addRecordedTrack,
+        getTrackCountForProject,
+        getTracksByProjectId,
+        isLoadingTracks,
+        trackStorageError,
+        tracks,
+    ]
+    );
 
   return <TrackContext.Provider value={value}>{children}</TrackContext.Provider>;
 }
