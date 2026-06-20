@@ -454,7 +454,9 @@ export default function LoopWorkspaceScreen() {
               style={[
                 styles.sessionButton,
                 isSessionPlaying ? styles.stopSessionButton : null,
-                !canPlaySession && !isSessionPlaying ? styles.sessionButtonDisabled : null,
+                isRecording || (!canPlaySession && !isSessionPlaying)
+                  ? styles.sessionButtonDisabled
+                  : null,
               ]}
               onPress={() => {
                 void handleSessionPlaybackPress();
@@ -464,7 +466,9 @@ export default function LoopWorkspaceScreen() {
               <Text
                 style={[
                   styles.sessionButtonText,
-                  !canPlaySession && !isSessionPlaying ? styles.sessionButtonTextDisabled : null,
+                  isRecording || (!canPlaySession && !isSessionPlaying)
+                    ? styles.sessionButtonTextDisabled
+                    : null,
                 ]}
               >
                 {isSessionPlaying ? 'Stop all' : 'Play all'}
@@ -495,6 +499,7 @@ export default function LoopWorkspaceScreen() {
                   key={track.id}
                   track={track}
                   isPlaying={playingTrackId === track.id}
+                  isPlayingInSession={isSessionPlaying && Boolean(track.localUri) && !track.muted}
                   onDeletePress={() => {
                     handleDeletePress(track);
                   }}
@@ -533,6 +538,7 @@ export default function LoopWorkspaceScreen() {
 function TrackCard({
   track,
   isPlaying,
+  isPlayingInSession,
   onDeletePress,
   onMutePress,
   onPlayPress,
@@ -542,6 +548,7 @@ function TrackCard({
 }: {
   track: LoopTrack;
   isPlaying: boolean;
+  isPlayingInSession: boolean;
   onDeletePress: () => void;
   onMutePress: () => void;
   onPlayPress: () => void;
@@ -637,6 +644,7 @@ function TrackCard({
       </View>
 
       <View style={styles.trackBadges}>
+        {isPlayingInSession ? <Text style={styles.playingBadge}>Playing</Text> : null}
         {track.localUri ? <Text style={styles.recordedBadge}>Recorded</Text> : null}
         {track.muted ? <Text style={styles.mutedBadge}>Muted</Text> : null}
         {track.solo ? <Text style={styles.soloBadge}>Solo</Text> : null}
@@ -842,9 +850,19 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     gap: 6,
   },
+  playingBadge: {
+    color: '#DCFCE7',
+    backgroundColor: '#1a9848',
+    borderRadius: 999,
+    overflow: 'hidden',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    fontSize: 12,
+    fontWeight: '800',
+  },
   recordedBadge: {
-    color: '#BBF7D0',
-    backgroundColor: '#14532D',
+    color: '#BAE6FD',
+    backgroundColor: '#075985',
     borderRadius: 999,
     overflow: 'hidden',
     paddingHorizontal: 10,
