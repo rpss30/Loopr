@@ -111,64 +111,77 @@ export default function ProjectListScreen() {
           </Text>
         </View>
 
-        <View style={styles.projectList}>
-          {projects.map((project) => {
-            const trackCount = isLoadingTracks
-              ? project.trackCount
-              : getTrackCountForProject(project.id);
+        {projects.length > 0 ? (
+          <View style={styles.projectList}>
+            {projects.map((project) => {
+              const trackCount = isLoadingTracks
+                ? project.trackCount
+                : getTrackCountForProject(project.id);
 
-            return (
-              <View key={project.id} style={styles.projectCard}>
-                <Pressable
-                  style={styles.projectCardMain}
-                  onPress={() => {
-                    router.push(`/projects/${project.id}`);
-                  }}
-                >
-                  <View style={styles.projectText}>
-                    <Text style={styles.projectName}>{project.name}</Text>
-                    <Text style={styles.projectMeta}>
-                      {project.bpm} BPM · {trackCount} {trackCount === 1 ? 'track' : 'tracks'}
-                    </Text>
-                  </View>
-                </Pressable>
+              return (
+                <View key={project.id} style={styles.projectCard}>
+                  <Pressable
+                    style={styles.projectCardMain}
+                    onPress={() => {
+                      router.push(`/projects/${project.id}`);
+                    }}
+                  >
+                    <View style={styles.projectText}>
+                      <Text style={styles.projectName}>{project.name}</Text>
+                      <Text style={styles.projectMeta}>
+                        {project.bpm} BPM · {trackCount} {trackCount === 1 ? 'track' : 'tracks'}
+                      </Text>
+                    </View>
+                  </Pressable>
 
-                <Pressable
-                  style={styles.projectEditButton}
-                  onPress={() => {
-                    handleRenameProjectPress(project.id, project.name);
-                  }}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Rename ${project.name}`}
-                >
-                  <Text style={styles.projectEditButtonText}>✎</Text>
-                </Pressable>
+                  <Pressable
+                    style={styles.projectEditButton}
+                    onPress={() => {
+                      handleRenameProjectPress(project.id, project.name);
+                    }}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Rename ${project.name}`}
+                  >
+                    <Text style={styles.projectEditButtonText}>✎</Text>
+                  </Pressable>
 
-                <Pressable
-                  style={styles.projectDeleteButton}
-                  onPress={() => {
-                    handleDeleteProjectPress(project.id, project.name);
-                  }}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Delete ${project.name}`}
-                >
-                  <Text style={styles.projectDeleteButtonText}>Delete</Text>
-                </Pressable>
+                  <Pressable
+                    style={styles.projectDeleteButton}
+                    onPress={() => {
+                      handleDeleteProjectPress(project.id, project.name);
+                    }}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Delete ${project.name}`}
+                  >
+                    <Text style={styles.projectDeleteButtonText}>Delete</Text>
+                  </Pressable>
 
-                <Pressable
-                  style={styles.projectArrowButton}
-                  onPress={() => {
-                    router.push(`/projects/${project.id}`);
-                  }}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Open ${project.name}`}
-                >
-                  <Text style={styles.cardArrow}>›</Text>
-                </Pressable>
-              </View>
-            );
-          })}
-        </View>
+                  <Pressable
+                    style={styles.projectArrowButton}
+                    onPress={() => {
+                      router.push(`/projects/${project.id}`);
+                    }}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Open ${project.name}`}
+                  >
+                    <Text style={styles.cardArrow}>›</Text>
+                  </Pressable>
+                </View>
+              );
+            })}
+          </View>
+        ) : (
+          <View style={styles.emptyCard}>
+            <Text style={styles.emptyTitle}>No projects yet</Text>
+            <Text style={styles.emptyText}>
+              Create a project to start recording loop ideas and layering tracks.
+            </Text>
+
+            <Pressable style={styles.emptyButton} onPress={() => router.push('/create-project')}>
+              <Text style={styles.emptyButtonText}>Create your first project</Text>
+            </Pressable>
+          </View>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -317,5 +330,35 @@ const styles = StyleSheet.create({
     color: '#FECACA',
     fontSize: 14,
     fontWeight: '700',
+  },
+  emptyCard: {
+    backgroundColor: '#111827',
+    borderRadius: 22,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: '#1F2937',
+    gap: 10,
+  },
+  emptyTitle: {
+    color: '#F9FAFB',
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  emptyText: {
+    color: '#94A3B8',
+    fontSize: 15,
+    lineHeight: 22,
+  },
+  emptyButton: {
+    marginTop: 8,
+    backgroundColor: '#38BDF8',
+    borderRadius: 16,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  emptyButtonText: {
+    color: '#082F49',
+    fontSize: 15,
+    fontWeight: '800',
   },
 });
