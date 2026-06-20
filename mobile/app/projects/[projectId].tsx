@@ -1,16 +1,7 @@
 import { Audio } from 'expo-av';
 import { Link, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import {
-  Alert,
-  Pressable,
-  SafeAreaView,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { Alert, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { useProjects } from '../../features/projects/project-store';
 import { useTracks } from '../../features/tracks/track-store';
@@ -206,6 +197,46 @@ export default function LoopWorkspaceScreen() {
     );
   }
 
+  const handleRenamePress = (track: LoopTrack) => {
+    Alert.prompt(
+      'Rename track',
+      'Enter a clear name for this loop layer.',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Save',
+          onPress: (name?: string) => {
+            const trimmedName = name?.trim() ?? '';
+
+            if (!trimmedName) {
+              Alert.alert('Track name required', 'Type a track name to save, or tap Cancel.', [
+                {
+                  text: 'Try again',
+                  onPress: () => {
+                    handleRenamePress(track);
+                  },
+                },
+                {
+                  text: 'Cancel',
+                  style: 'cancel',
+                },
+              ]);
+
+              return;
+            }
+
+            renameTrack(track.id, trimmedName);
+          },
+        },
+      ],
+      'plain-text',
+      track.name
+    );
+  };
+
   if (!project) {
     return (
       <SafeAreaView style={styles.safeArea}>
@@ -281,8 +312,8 @@ export default function LoopWorkspaceScreen() {
                   onPlayPress={() => {
                     void playTrack(track);
                   }}
-                  onRenameSubmit={(name) => {
-                    renameTrack(track.id, name);
+                  onRenamePress={() => {
+                    handleRenamePress(track);
                   }}
                 />
               ))}
@@ -306,81 +337,32 @@ function TrackCard({
   isPlaying,
   onMutePress,
   onPlayPress,
-  onRenameSubmit,
+  onRenamePress,
 }: {
   track: LoopTrack;
   isPlaying: boolean;
   onMutePress: () => void;
   onPlayPress: () => void;
-  onRenameSubmit: (name: string) => void;
+  onRenamePress: () => void;
 }) {
   const hasAudio = Boolean(track.localUri);
-  const [isEditingName, setIsEditingName] = useState(false);
-  const [draftName, setDraftName] = useState(track.name);
-
-  useEffect(() => {
-    if (!isEditingName) {
-      setDraftName(track.name);
-    }
-  }, [isEditingName, track.name]);
-
-  const saveName = () => {
-    const trimmedName = draftName.trim();
-
-    if (!trimmedName) {
-      setDraftName(track.name);
-      setIsEditingName(false);
-      return;
-    }
-
-    onRenameSubmit(trimmedName);
-    setDraftName(trimmedName);
-    setIsEditingName(false);
-  };
-
-  const cancelRename = () => {
-    setDraftName(track.name);
-    setIsEditingName(false);
-  };
 
   return (
     <View style={styles.trackCard}>
       <View style={styles.trackInfo}>
-        {isEditingName ? (
-          <View style={styles.renameContainer}>
-            <TextInput
-              style={styles.trackNameInput}
-              value={draftName}
-              onChangeText={setDraftName}
-              onSubmitEditing={saveName}
-              returnKeyType="done"
-              autoFocus
-              placeholder="Track name"
-              placeholderTextColor="#64748B"
-            />
+        <View style={styles.trackNameRow}>
+          <Text style={styles.trackName}>{track.name}</Text>
 
-            <View style={styles.renameActions}>
-              <Pressable style={styles.renameSaveButton} onPress={saveName}>
-                <Text style={styles.renameSaveButtonText}>Save</Text>
-              </Pressable>
-
-              <Pressable style={styles.renameCancelButton} onPress={cancelRename}>
-                <Text style={styles.renameCancelButtonText}>Cancel</Text>
-              </Pressable>
-            </View>
-          </View>
-        ) : (
           <Pressable
-            style={styles.trackNameButton}
-            onPress={() => {
-              setDraftName(track.name);
-              setIsEditingName(true);
-            }}
+            style={styles.editNameButton}
+            onPress={onRenamePress}
+            accessibilityRole="button"
+            accessibilityLabel={`Rename ${track.name}`}
           >
-            <Text style={styles.trackName}>{track.name}</Text>
-            <Text style={styles.renameHint}>Tap name to rename</Text>
+            <Text style={styles.editNameButtonText}>✎</Text>
           </Pressable>
-        )}
+        </View>
+
         <Text style={styles.trackMeta}>
           {formatDuration(track.durationMs)} · volume {Math.round(track.volume * 100)}%
         </Text>
@@ -444,6 +426,7 @@ const styles = StyleSheet.create({
   },
   container: {
     padding: 20,
+    paddingBottom: 80,
     gap: 18,
   },
   notFoundContainer: {
@@ -567,54 +550,21 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '800',
   },
-  trackNameButton: {
-    alignSelf: 'flex-start',
-  },
-  renameHint: {
-    color: '#64748B',
-    fontSize: 12,
-    fontWeight: '700',
-    marginTop: 2,
-  },
-  renameContainer: {
-    gap: 8,
-  },
-  trackNameInput: {
-    color: '#F9FAFB',
-    backgroundColor: '#111827',
-    borderColor: '#334155',
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 9,
-    fontSize: 16,
-    fontWeight: '800',
-  },
-  renameActions: {
+  trackNameRow: {
     flexDirection: 'row',
+    alignItems: 'center',
     gap: 8,
   },
-  renameSaveButton: {
-    backgroundColor: '#38BDF8',
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-  },
-  renameSaveButtonText: {
-    color: '#082F49',
-    fontSize: 12,
-    fontWeight: '800',
-  },
-  renameCancelButton: {
+  editNameButton: {
     backgroundColor: '#1F2937',
     borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
   },
-  renameCancelButtonText: {
+  editNameButtonText: {
     color: '#CBD5E1',
-    fontSize: 12,
-    fontWeight: '800',
+    fontSize: 14,
+    fontWeight: '900',
   },
   trackMeta: {
     color: '#94A3B8',
