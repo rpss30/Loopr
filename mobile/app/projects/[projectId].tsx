@@ -8,6 +8,20 @@ import { useProjects } from '../../features/projects/project-store';
 import { useTracks } from '../../features/tracks/track-store';
 import { LoopTrack } from '../../types/track';
 
+async function stopAndUnloadSound(sound: Audio.Sound) {
+  try {
+    const status = await sound.getStatusAsync();
+
+    if (status.isLoaded) {
+      await sound.stopAsync();
+    }
+
+    await sound.unloadAsync();
+  } catch {
+    // The sound may already be stopped or unloaded by a playback callback.
+  }
+}
+
 export default function LoopWorkspaceScreen() {
   const params = useLocalSearchParams<{ projectId: string }>();
   const { getProjectById, isLoadingProjects } = useProjects();
@@ -27,19 +41,30 @@ export default function LoopWorkspaceScreen() {
   const [permissionResponse, requestPermission] = Audio.usePermissions();
 
   const soundRef = useRef<Audio.Sound | null>(null);
+  const sessionSoundRefs = useRef<Map<string, Audio.Sound>>(new Map());
+
   const [playingTrackId, setPlayingTrackId] = useState<string | null>(null);
+  const [isSessionPlaying, setIsSessionPlaying] = useState(false);
 
   const project = getProjectById(params.projectId);
   const tracks = project ? getTracksByProjectId(project.id) : [];
   const isLoading = isLoadingProjects || isLoadingTracks;
   const isRecording = recording !== null;
+  const playableSessionTracks = tracks.filter((track) => track.localUri && !track.muted);
+  const canPlaySession = playableSessionTracks.length > 0;
 
   useEffect(() => {
     return () => {
       if (soundRef.current) {
-        void soundRef.current.unloadAsync();
+        void stopAndUnloadSound(soundRef.current);
         soundRef.current = null;
       }
+
+      sessionSoundRefs.current.forEach((sound) => {
+        void stopAndUnloadSound(sound);
+      });
+
+      sessionSoundRefs.current.clear();
     };
   }, []);
 
@@ -49,6 +74,7 @@ export default function LoopWorkspaceScreen() {
     }
 
     await stopPlayback();
+    await stopSessionPlayback();
 
     try {
       let permission = permissionResponse;
@@ -120,7 +146,6 @@ export default function LoopWorkspaceScreen() {
       setRecordingDurationMs(0);
     }
   };
-
   const stopPlayback = async () => {
     if (!soundRef.current) {
       setPlayingTrackId(null);
@@ -131,7 +156,16 @@ export default function LoopWorkspaceScreen() {
     soundRef.current = null;
     setPlayingTrackId(null);
 
-    await activeSound.unloadAsync();
+    await stopAndUnloadSound(activeSound);
+  };
+
+  const stopSessionPlayback = async () => {
+    const activeSounds = Array.from(sessionSoundRefs.current.values());
+
+    sessionSoundRefs.current.clear();
+    setIsSessionPlaying(false);
+
+    await Promise.all(activeSounds.map((sound) => stopAndUnloadSound(sound)));
   };
 
   const playTrack = async (track: LoopTrack) => {
@@ -148,10 +182,12 @@ export default function LoopWorkspaceScreen() {
     try {
       if (playingTrackId === track.id) {
         await stopPlayback();
+        await stopSessionPlayback();
         return;
       }
 
       await stopPlayback();
+      await stopSessionPlayback();
 
       await Audio.setAudioModeAsync({
         allowsRecordingIOS: false,
@@ -181,9 +217,82 @@ export default function LoopWorkspaceScreen() {
     }
   };
 
+  const playSession = async () => {
+    if (!canPlaySession) {
+      Alert.alert(
+        'No playable tracks',
+        'Record a track or unmute an existing recorded track before playing the session.'
+      );
+      return;
+    }
+
+    const loadedSounds = new Map<string, Audio.Sound>();
+
+    try {
+      await stopPlayback();
+      await stopSessionPlayback();
+
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: false,
+        playsInSilentModeIOS: true,
+      });
+
+      for (const track of playableSessionTracks) {
+        if (!track.localUri) {
+          continue;
+        }
+
+        const { sound } = await Audio.Sound.createAsync(
+          { uri: track.localUri },
+          {
+            shouldPlay: false,
+            volume: track.volume,
+          }
+        );
+
+        sound.setOnPlaybackStatusUpdate((status) => {
+          if (status.isLoaded && status.didJustFinish) {
+            void stopAndUnloadSound(sound);
+            sessionSoundRefs.current.delete(track.id);
+
+            if (sessionSoundRefs.current.size === 0) {
+              setIsSessionPlaying(false);
+            }
+          }
+        });
+
+        loadedSounds.set(track.id, sound);
+      }
+
+      sessionSoundRefs.current = loadedSounds;
+      setIsSessionPlaying(true);
+
+      await Promise.all(Array.from(loadedSounds.values()).map((sound) => sound.playAsync()));
+    } catch {
+      await Promise.all(Array.from(loadedSounds.values()).map((sound) => sound.unloadAsync()));
+      sessionSoundRefs.current.clear();
+      setIsSessionPlaying(false);
+
+      Alert.alert('Session playback failed', 'Could not play all recorded tracks.');
+    }
+  };
+
+  const handleSessionPlaybackPress = async () => {
+    if (isSessionPlaying) {
+      await stopSessionPlayback();
+      return;
+    }
+
+    await playSession();
+  };
+
   const handleMutePress = async (track: LoopTrack) => {
     if (playingTrackId === track.id) {
       await stopPlayback();
+    }
+
+    if (isSessionPlaying) {
+      await stopSessionPlayback();
     }
 
     toggleTrackMuted(track.id);
@@ -245,6 +354,10 @@ export default function LoopWorkspaceScreen() {
       await stopPlayback();
     }
 
+    if (isSessionPlaying) {
+      await stopSessionPlayback();
+    }
+
     deleteTrack(track.id);
   };
 
@@ -265,11 +378,15 @@ export default function LoopWorkspaceScreen() {
   };
 
   const previewTrackVolume = (track: LoopTrack, volume: number) => {
-    if (playingTrackId !== track.id || !soundRef.current) {
-      return;
+    if (playingTrackId === track.id && soundRef.current) {
+      void soundRef.current.setVolumeAsync(volume);
     }
 
-    void soundRef.current.setVolumeAsync(volume);
+    const sessionSound = sessionSoundRefs.current.get(track.id);
+
+    if (sessionSound) {
+      void sessionSound.setVolumeAsync(volume);
+    }
   };
 
   const handleVolumeChangeComplete = (track: LoopTrack, volume: number) => {
@@ -277,6 +394,12 @@ export default function LoopWorkspaceScreen() {
 
     if (playingTrackId === track.id && soundRef.current) {
       void soundRef.current.setVolumeAsync(volume);
+    }
+
+    const sessionSound = sessionSoundRefs.current.get(track.id);
+
+    if (sessionSound) {
+      void sessionSound.setVolumeAsync(volume);
     }
   };
 
@@ -327,15 +450,42 @@ export default function LoopWorkspaceScreen() {
               <Text style={styles.recordButtonText}>{isRecording ? 'Stop & save' : 'Record'}</Text>
             </Pressable>
 
-            <Pressable style={styles.disabledButton}>
-              <Text style={styles.disabledButtonText}>Play next</Text>
+            <Pressable
+              style={[
+                styles.sessionButton,
+                isSessionPlaying ? styles.stopSessionButton : null,
+                isRecording || (!canPlaySession && !isSessionPlaying)
+                  ? styles.sessionButtonDisabled
+                  : null,
+              ]}
+              onPress={() => {
+                void handleSessionPlaybackPress();
+              }}
+              disabled={isRecording || (!canPlaySession && !isSessionPlaying)}
+            >
+              <Text
+                style={[
+                  styles.sessionButtonText,
+                  isRecording || (!canPlaySession && !isSessionPlaying)
+                    ? styles.sessionButtonTextDisabled
+                    : null,
+                ]}
+              >
+                {isSessionPlaying ? 'Stop all' : 'Play all'}
+              </Text>
             </Pressable>
           </View>
 
           <Text style={styles.helperText}>
             {isRecording
               ? `Recording... ${formatDuration(recordingDurationMs)}`
-              : 'Record a short idea. Playback will be added in the next step.'}
+              : isSessionPlaying
+                ? 'Playing all unmuted recorded tracks in this workspace.'
+                : canPlaySession
+                  ? `Play ${playableSessionTracks.length} unmuted recorded ${
+                      playableSessionTracks.length === 1 ? 'track' : 'tracks'
+                    }.`
+                  : 'Record a short idea, then use Play all to hear the workspace.'}
           </Text>
         </View>
 
@@ -349,6 +499,7 @@ export default function LoopWorkspaceScreen() {
                   key={track.id}
                   track={track}
                   isPlaying={playingTrackId === track.id}
+                  isPlayingInSession={isSessionPlaying && Boolean(track.localUri) && !track.muted}
                   onDeletePress={() => {
                     handleDeletePress(track);
                   }}
@@ -387,6 +538,7 @@ export default function LoopWorkspaceScreen() {
 function TrackCard({
   track,
   isPlaying,
+  isPlayingInSession,
   onDeletePress,
   onMutePress,
   onPlayPress,
@@ -396,6 +548,7 @@ function TrackCard({
 }: {
   track: LoopTrack;
   isPlaying: boolean;
+  isPlayingInSession: boolean;
   onDeletePress: () => void;
   onMutePress: () => void;
   onPlayPress: () => void;
@@ -491,6 +644,7 @@ function TrackCard({
       </View>
 
       <View style={styles.trackBadges}>
+        {isPlayingInSession ? <Text style={styles.playingBadge}>Playing</Text> : null}
         {track.localUri ? <Text style={styles.recordedBadge}>Recorded</Text> : null}
         {track.muted ? <Text style={styles.mutedBadge}>Muted</Text> : null}
         {track.solo ? <Text style={styles.soloBadge}>Solo</Text> : null}
@@ -603,6 +757,27 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '800',
   },
+  sessionButton: {
+    flex: 1,
+    backgroundColor: '#22C55E',
+    borderRadius: 16,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  stopSessionButton: {
+    backgroundColor: '#F97316',
+  },
+  sessionButtonDisabled: {
+    backgroundColor: '#1F2937',
+  },
+  sessionButtonText: {
+    color: '#052E16',
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  sessionButtonTextDisabled: {
+    color: '#94A3B8',
+  },
   helperText: {
     color: '#94A3B8',
     fontSize: 14,
@@ -675,9 +850,19 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     gap: 6,
   },
+  playingBadge: {
+    color: '#DCFCE7',
+    backgroundColor: '#1a9848',
+    borderRadius: 999,
+    overflow: 'hidden',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    fontSize: 12,
+    fontWeight: '800',
+  },
   recordedBadge: {
-    color: '#BBF7D0',
-    backgroundColor: '#14532D',
+    color: '#BAE6FD',
+    backgroundColor: '#075985',
     borderRadius: 999,
     overflow: 'hidden',
     paddingHorizontal: 10,
