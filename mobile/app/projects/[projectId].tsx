@@ -24,7 +24,7 @@ async function stopAndUnloadSound(sound: Audio.Sound) {
 
 export default function LoopWorkspaceScreen() {
   const params = useLocalSearchParams<{ projectId: string }>();
-  const { getProjectById, isLoadingProjects } = useProjects();
+  const { getProjectById, isLoadingProjects, renameProject } = useProjects();
   const {
     addRecordedTrack,
     deleteTrack,
@@ -422,12 +422,61 @@ export default function LoopWorkspaceScreen() {
     );
   }
 
+  const handleRenameProjectPress = () => {
+    Alert.prompt(
+      'Rename project',
+      'Enter a clear name for this loop project.',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Save',
+          onPress: (name?: string) => {
+            const trimmedName = name?.trim() ?? '';
+
+            if (!trimmedName) {
+              Alert.alert('Project name required', 'Type a project name to save, or tap Cancel.', [
+                {
+                  text: 'Try again',
+                  onPress: handleRenameProjectPress,
+                },
+                {
+                  text: 'Cancel',
+                  style: 'cancel',
+                },
+              ]);
+
+              return;
+            }
+
+            renameProject(project.id, trimmedName);
+          },
+        },
+      ],
+      'plain-text',
+      project.name
+    );
+  };
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.container}>
         <View style={styles.projectHeader}>
           <Text style={styles.eyebrow}>Loop Workspace</Text>
-          <Text style={styles.title}>{project.name}</Text>
+          <View style={styles.projectTitleRow}>
+            <Text style={styles.title}>{project.name}</Text>
+
+            <Pressable
+              style={styles.projectEditButton}
+              onPress={handleRenameProjectPress}
+              accessibilityRole="button"
+              accessibilityLabel={`Rename ${project.name}`}
+            >
+              <Text style={styles.projectEditButtonText}>✎</Text>
+            </Pressable>
+          </View>
           <Text style={styles.subtitle}>
             {project.bpm} BPM · {tracks.length} recorded {tracks.length === 1 ? 'track' : 'tracks'}
           </Text>
@@ -696,6 +745,22 @@ const styles = StyleSheet.create({
     color: '#F9FAFB',
     fontSize: 32,
     fontWeight: '800',
+  },
+  projectTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  projectEditButton: {
+    backgroundColor: '#1F2937',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  projectEditButtonText: {
+    color: '#CBD5E1',
+    fontSize: 14,
+    fontWeight: '900',
   },
   subtitle: {
     color: '#CBD5E1',

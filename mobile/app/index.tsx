@@ -1,12 +1,75 @@
-import { Link, router } from 'expo-router';
-import { Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { router } from 'expo-router';
+import { Alert, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { useProjects } from '../features/projects/project-store';
 import { useTracks } from '../features/tracks/track-store';
 
 export default function ProjectListScreen() {
-  const { projects, isLoadingProjects, projectStorageError } = useProjects();
-  const { getTrackCountForProject, isLoadingTracks, trackStorageError } = useTracks();
+  const { projects, isLoadingProjects, projectStorageError, renameProject, deleteProject } =
+    useProjects();
+  const { deleteTracksByProjectId, getTrackCountForProject, isLoadingTracks, trackStorageError } =
+    useTracks();
+
+  const handleRenameProjectPress = (projectId: string, currentName: string) => {
+    Alert.prompt(
+      'Rename project',
+      'Enter a clear name for this loop project.',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Save',
+          onPress: (name?: string) => {
+            const trimmedName = name?.trim() ?? '';
+
+            if (!trimmedName) {
+              Alert.alert('Project name required', 'Type a project name to save, or tap Cancel.', [
+                {
+                  text: 'Try again',
+                  onPress: () => {
+                    handleRenameProjectPress(projectId, currentName);
+                  },
+                },
+                {
+                  text: 'Cancel',
+                  style: 'cancel',
+                },
+              ]);
+
+              return;
+            }
+
+            renameProject(projectId, trimmedName);
+          },
+        },
+      ],
+      'plain-text',
+      currentName
+    );
+  };
+
+  const handleDeleteProjectPress = (projectId: string, projectName: string) => {
+    Alert.alert(
+      'Delete project?',
+      `"${projectName}" and its track metadata will be removed from Loopr.`,
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            deleteTracksByProjectId(projectId);
+            deleteProject(projectId);
+          },
+        },
+      ]
+    );
+  };
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -48,28 +111,77 @@ export default function ProjectListScreen() {
           </Text>
         </View>
 
-        <View style={styles.projectList}>
-          {projects.map((project) => (
-            <Link key={project.id} href={`/projects/${project.id}`} asChild>
-              <Pressable style={styles.projectCard}>
-                <View>
-                  <Text style={styles.projectName}>{project.name}</Text>
-                  <Text style={styles.projectMeta}>
-                    {project.bpm} BPM ·{' '}
-                    {isLoadingTracks ? project.trackCount : getTrackCountForProject(project.id)}{' '}
-                    {(isLoadingTracks
-                      ? project.trackCount
-                      : getTrackCountForProject(project.id)) === 1
-                      ? 'track'
-                      : 'tracks'}
-                  </Text>
-                </View>
+        {projects.length > 0 ? (
+          <View style={styles.projectList}>
+            {projects.map((project) => {
+              const trackCount = isLoadingTracks
+                ? project.trackCount
+                : getTrackCountForProject(project.id);
 
-                <Text style={styles.cardArrow}>›</Text>
-              </Pressable>
-            </Link>
-          ))}
-        </View>
+              return (
+                <View key={project.id} style={styles.projectCard}>
+                  <Pressable
+                    style={styles.projectCardMain}
+                    onPress={() => {
+                      router.push(`/projects/${project.id}`);
+                    }}
+                  >
+                    <View style={styles.projectText}>
+                      <Text style={styles.projectName}>{project.name}</Text>
+                      <Text style={styles.projectMeta}>
+                        {project.bpm} BPM · {trackCount} {trackCount === 1 ? 'track' : 'tracks'}
+                      </Text>
+                    </View>
+                  </Pressable>
+
+                  <Pressable
+                    style={styles.projectEditButton}
+                    onPress={() => {
+                      handleRenameProjectPress(project.id, project.name);
+                    }}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Rename ${project.name}`}
+                  >
+                    <Text style={styles.projectEditButtonText}>✎</Text>
+                  </Pressable>
+
+                  <Pressable
+                    style={styles.projectDeleteButton}
+                    onPress={() => {
+                      handleDeleteProjectPress(project.id, project.name);
+                    }}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Delete ${project.name}`}
+                  >
+                    <Text style={styles.projectDeleteButtonText}>Delete</Text>
+                  </Pressable>
+
+                  <Pressable
+                    style={styles.projectArrowButton}
+                    onPress={() => {
+                      router.push(`/projects/${project.id}`);
+                    }}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Open ${project.name}`}
+                  >
+                    <Text style={styles.cardArrow}>›</Text>
+                  </Pressable>
+                </View>
+              );
+            })}
+          </View>
+        ) : (
+          <View style={styles.emptyCard}>
+            <Text style={styles.emptyTitle}>No projects yet</Text>
+            <Text style={styles.emptyText}>
+              Create a project to start recording loop ideas and layering tracks.
+            </Text>
+
+            <Pressable style={styles.emptyButton} onPress={() => router.push('/create-project')}>
+              <Text style={styles.emptyButtonText}>Create your first project</Text>
+            </Pressable>
+          </View>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -146,6 +258,39 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    gap: 12,
+  },
+  projectCardMain: {
+    flex: 1,
+  },
+  projectText: {
+    flex: 1,
+  },
+  projectEditButton: {
+    backgroundColor: '#1F2937',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  projectEditButtonText: {
+    color: '#CBD5E1',
+    fontSize: 14,
+    fontWeight: '900',
+  },
+  projectDeleteButton: {
+    backgroundColor: '#450A0A',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  projectDeleteButtonText: {
+    color: '#FCA5A5',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  projectArrowButton: {
+    paddingHorizontal: 4,
+    paddingVertical: 2,
   },
   projectName: {
     color: '#F9FAFB',
@@ -185,5 +330,35 @@ const styles = StyleSheet.create({
     color: '#FECACA',
     fontSize: 14,
     fontWeight: '700',
+  },
+  emptyCard: {
+    backgroundColor: '#111827',
+    borderRadius: 22,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: '#1F2937',
+    gap: 10,
+  },
+  emptyTitle: {
+    color: '#F9FAFB',
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  emptyText: {
+    color: '#94A3B8',
+    fontSize: 15,
+    lineHeight: 22,
+  },
+  emptyButton: {
+    marginTop: 8,
+    backgroundColor: '#38BDF8',
+    borderRadius: 16,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  emptyButtonText: {
+    color: '#082F49',
+    fontSize: 15,
+    fontWeight: '800',
   },
 });
