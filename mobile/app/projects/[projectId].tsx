@@ -1,3 +1,4 @@
+import Slider from '@react-native-community/slider';
 import { Audio } from 'expo-av';
 import { Link, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
@@ -10,8 +11,16 @@ import { LoopTrack } from '../../types/track';
 export default function LoopWorkspaceScreen() {
   const params = useLocalSearchParams<{ projectId: string }>();
   const { getProjectById, isLoadingProjects } = useProjects();
-  const { addRecordedTrack, getTracksByProjectId, isLoadingTracks, trackStorageError } =
-    useTracks();
+  const {
+    addRecordedTrack,
+    deleteTrack,
+    getTracksByProjectId,
+    isLoadingTracks,
+    renameTrack,
+    toggleTrackMuted,
+    trackStorageError,
+    updateTrackVolume,
+  } = useTracks();
 
   const [recording, setRecording] = useState<Audio.Recording | null>(null);
   const [recordingDurationMs, setRecordingDurationMs] = useState(0);
@@ -131,6 +140,11 @@ export default function LoopWorkspaceScreen() {
       return;
     }
 
+    if (track.muted) {
+      Alert.alert('Track muted', 'Unmute this track before playing it.');
+      return;
+    }
+
     try {
       if (playingTrackId === track.id) {
         await stopPlayback();
@@ -167,6 +181,14 @@ export default function LoopWorkspaceScreen() {
     }
   };
 
+  const handleMutePress = async (track: LoopTrack) => {
+    if (playingTrackId === track.id) {
+      await stopPlayback();
+    }
+
+    toggleTrackMuted(track.id);
+  };
+
   if (isLoading) {
     return (
       <SafeAreaView style={styles.safeArea}>
@@ -177,6 +199,86 @@ export default function LoopWorkspaceScreen() {
       </SafeAreaView>
     );
   }
+
+  const handleRenamePress = (track: LoopTrack) => {
+    Alert.prompt(
+      'Rename track',
+      'Enter a clear name for this loop layer.',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Save',
+          onPress: (name?: string) => {
+            const trimmedName = name?.trim() ?? '';
+
+            if (!trimmedName) {
+              Alert.alert('Track name required', 'Type a track name to save, or tap Cancel.', [
+                {
+                  text: 'Try again',
+                  onPress: () => {
+                    handleRenamePress(track);
+                  },
+                },
+                {
+                  text: 'Cancel',
+                  style: 'cancel',
+                },
+              ]);
+
+              return;
+            }
+
+            renameTrack(track.id, trimmedName);
+          },
+        },
+      ],
+      'plain-text',
+      track.name
+    );
+  };
+
+  const deleteSelectedTrack = async (track: LoopTrack) => {
+    if (playingTrackId === track.id) {
+      await stopPlayback();
+    }
+
+    deleteTrack(track.id);
+  };
+
+  const handleDeletePress = (track: LoopTrack) => {
+    Alert.alert('Delete track?', `"${track.name}" will be removed from this project.`, [
+      {
+        text: 'Cancel',
+        style: 'cancel',
+      },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: () => {
+          void deleteSelectedTrack(track);
+        },
+      },
+    ]);
+  };
+
+  const previewTrackVolume = (track: LoopTrack, volume: number) => {
+    if (playingTrackId !== track.id || !soundRef.current) {
+      return;
+    }
+
+    void soundRef.current.setVolumeAsync(volume);
+  };
+
+  const handleVolumeChangeComplete = (track: LoopTrack, volume: number) => {
+    updateTrackVolume(track.id, volume);
+
+    if (playingTrackId === track.id && soundRef.current) {
+      void soundRef.current.setVolumeAsync(volume);
+    }
+  };
 
   if (!project) {
     return (
@@ -247,8 +349,23 @@ export default function LoopWorkspaceScreen() {
                   key={track.id}
                   track={track}
                   isPlaying={playingTrackId === track.id}
+                  onDeletePress={() => {
+                    handleDeletePress(track);
+                  }}
+                  onMutePress={() => {
+                    void handleMutePress(track);
+                  }}
                   onPlayPress={() => {
                     void playTrack(track);
+                  }}
+                  onRenamePress={() => {
+                    handleRenamePress(track);
+                  }}
+                  onVolumeChange={(volume) => {
+                    previewTrackVolume(track, volume);
+                  }}
+                  onVolumeChangeComplete={(volume) => {
+                    handleVolumeChangeComplete(track, volume);
                   }}
                 />
               ))}
@@ -270,36 +387,107 @@ export default function LoopWorkspaceScreen() {
 function TrackCard({
   track,
   isPlaying,
+  onDeletePress,
+  onMutePress,
   onPlayPress,
+  onRenamePress,
+  onVolumeChange,
+  onVolumeChangeComplete,
 }: {
   track: LoopTrack;
   isPlaying: boolean;
+  onDeletePress: () => void;
+  onMutePress: () => void;
   onPlayPress: () => void;
+  onRenamePress: () => void;
+  onVolumeChange: (volume: number) => void;
+  onVolumeChangeComplete: (volume: number) => void;
 }) {
   const hasAudio = Boolean(track.localUri);
+  const [draftVolume, setDraftVolume] = useState(track.volume);
+
+  useEffect(() => {
+    setDraftVolume(track.volume);
+  }, [track.volume]);
 
   return (
     <View style={styles.trackCard}>
       <View style={styles.trackInfo}>
-        <Text style={styles.trackName}>{track.name}</Text>
+        <View style={styles.trackNameRow}>
+          <Text style={styles.trackName}>{track.name}</Text>
+
+          <Pressable
+            style={styles.editNameButton}
+            onPress={onRenamePress}
+            accessibilityRole="button"
+            accessibilityLabel={`Rename ${track.name}`}
+          >
+            <Text style={styles.editNameButtonText}>✎</Text>
+          </Pressable>
+        </View>
+
         <Text style={styles.trackMeta}>
-          {formatDuration(track.durationMs)} · volume {Math.round(track.volume * 100)}%
+          {formatDuration(track.durationMs)} · volume {Math.round(draftVolume * 100)}%
         </Text>
 
-        <Pressable
-          style={[styles.trackPlayButton, !hasAudio ? styles.trackPlayButtonDisabled : null]}
-          onPress={onPlayPress}
-          disabled={!hasAudio}
-        >
-          <Text
+        <View style={styles.volumeControl}>
+          <Slider
+            style={styles.volumeSlider}
+            value={draftVolume}
+            minimumValue={0}
+            maximumValue={1}
+            step={0.01}
+            minimumTrackTintColor="#38BDF8"
+            maximumTrackTintColor="#334155"
+            thumbTintColor="#F9FAFB"
+            onValueChange={(volume) => {
+              setDraftVolume(volume);
+              onVolumeChange(volume);
+            }}
+            onSlidingComplete={(volume) => {
+              setDraftVolume(volume);
+              onVolumeChangeComplete(volume);
+            }}
+          />
+        </View>
+
+        <View style={styles.trackControls}>
+          <Pressable
             style={[
-              styles.trackPlayButtonText,
-              !hasAudio ? styles.trackPlayButtonTextDisabled : null,
+              styles.trackPlayButton,
+              !hasAudio || track.muted ? styles.trackPlayButtonDisabled : null,
             ]}
+            onPress={onPlayPress}
+            disabled={!hasAudio || track.muted}
           >
-            {!hasAudio ? 'No audio yet' : isPlaying ? 'Stop' : 'Play'}
-          </Text>
-        </Pressable>
+            <Text
+              style={[
+                styles.trackPlayButtonText,
+                !hasAudio || track.muted ? styles.trackPlayButtonTextDisabled : null,
+              ]}
+            >
+              {!hasAudio ? 'No audio yet' : track.muted ? 'Muted' : isPlaying ? 'Stop' : 'Play'}
+            </Text>
+          </Pressable>
+
+          <Pressable
+            style={[styles.trackMuteButton, track.muted ? styles.trackMuteButtonActive : null]}
+            onPress={onMutePress}
+          >
+            <Text
+              style={[
+                styles.trackMuteButtonText,
+                track.muted ? styles.trackMuteButtonTextActive : null,
+              ]}
+            >
+              {track.muted ? 'Unmute' : 'Mute'}
+            </Text>
+          </Pressable>
+
+          <Pressable style={styles.trackDeleteButton} onPress={onDeletePress}>
+            <Text style={styles.trackDeleteButtonText}>Delete</Text>
+          </Pressable>
+        </View>
       </View>
 
       <View style={styles.trackBadges}>
@@ -326,6 +514,7 @@ const styles = StyleSheet.create({
   },
   container: {
     padding: 20,
+    paddingBottom: 80,
     gap: 18,
   },
   notFoundContainer: {
@@ -449,9 +638,38 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '800',
   },
+  trackNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  editNameButton: {
+    backgroundColor: '#1F2937',
+    borderRadius: 999,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+  },
+  editNameButtonText: {
+    color: '#CBD5E1',
+    fontSize: 14,
+    fontWeight: '900',
+  },
   trackMeta: {
     color: '#94A3B8',
     fontSize: 14,
+  },
+  volumeControl: {
+    marginTop: 6,
+  },
+  volumeSlider: {
+    width: '100%',
+    height: 36,
+  },
+  trackControls: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 8,
   },
   trackBadges: {
     alignItems: 'flex-end',
@@ -514,7 +732,6 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     paddingHorizontal: 14,
     paddingVertical: 8,
-    marginTop: 8,
   },
   trackPlayButtonDisabled: {
     backgroundColor: '#1F2937',
@@ -526,5 +743,35 @@ const styles = StyleSheet.create({
   },
   trackPlayButtonTextDisabled: {
     color: '#64748B',
+  },
+  trackMuteButton: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#1F2937',
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  trackMuteButtonActive: {
+    backgroundColor: '#450A0A',
+  },
+  trackMuteButtonText: {
+    color: '#CBD5E1',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  trackMuteButtonTextActive: {
+    color: '#FCA5A5',
+  },
+  trackDeleteButton: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#450A0A',
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  trackDeleteButtonText: {
+    color: '#FCA5A5',
+    fontSize: 13,
+    fontWeight: '800',
   },
 });

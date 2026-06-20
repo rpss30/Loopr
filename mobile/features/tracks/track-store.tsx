@@ -22,6 +22,10 @@ type TrackContextValue = {
   isLoadingTracks: boolean;
   trackStorageError: string | null;
   addRecordedTrack: (input: AddRecordedTrackInput) => LoopTrack;
+  toggleTrackMuted: (trackId: string) => void;
+  renameTrack: (trackId: string, name: string) => void;
+  deleteTrack: (trackId: string) => void;
+  updateTrackVolume: (trackId: string, volume: number) => void;
   getTracksByProjectId: (projectId: string) => LoopTrack[];
   getTrackCountForProject: (projectId: string) => number;
 };
@@ -173,6 +177,97 @@ export function TrackProvider({ children }: PropsWithChildren) {
     [tracks]
   );
 
+  const toggleTrackMuted = useCallback((trackId: string) => {
+    const now = new Date().toISOString();
+
+    setTracks((currentTracks) =>
+      currentTracks.map((track) => {
+        if (track.id !== trackId) {
+          return track;
+        }
+
+        return {
+          ...track,
+          muted: !track.muted,
+          updatedAt: now,
+        };
+      })
+    );
+  }, []);
+
+  const renameTrack = useCallback((trackId: string, name: string) => {
+    const trimmedName = name.trim();
+
+    if (!trimmedName) {
+      return;
+    }
+
+    const now = new Date().toISOString();
+
+    setTracks((currentTracks) =>
+      currentTracks.map((track) => {
+        if (track.id !== trackId) {
+          return track;
+        }
+
+        return {
+          ...track,
+          name: trimmedName,
+          updatedAt: now,
+        };
+      })
+    );
+  }, []);
+
+  const deleteTrack = useCallback((trackId: string) => {
+    const now = new Date().toISOString();
+
+    setTracks((currentTracks) => {
+      const trackToDelete = currentTracks.find((track) => track.id === trackId);
+
+      if (!trackToDelete) {
+        return currentTracks;
+      }
+
+      const remainingTracks = currentTracks.filter((track) => track.id !== trackId);
+
+      const reorderedProjectTracks = new Map(
+        remainingTracks
+          .filter((track) => track.projectId === trackToDelete.projectId)
+          .sort((left, right) => left.orderIndex - right.orderIndex)
+          .map((track, index) => [
+            track.id,
+            {
+              ...track,
+              orderIndex: index,
+              updatedAt: now,
+            },
+          ])
+      );
+
+      return remainingTracks.map((track) => reorderedProjectTracks.get(track.id) ?? track);
+    });
+  }, []);
+
+  const updateTrackVolume = useCallback((trackId: string, volume: number) => {
+    const normalizedVolume = Math.min(Math.max(volume, 0), 1);
+    const now = new Date().toISOString();
+
+    setTracks((currentTracks) =>
+      currentTracks.map((track) => {
+        if (track.id !== trackId) {
+          return track;
+        }
+
+        return {
+          ...track,
+          volume: normalizedVolume,
+          updatedAt: now,
+        };
+      })
+    );
+  }, []);
+
   const getTracksByProjectId = useCallback(
     (projectId: string) => {
       return tracks
@@ -195,16 +290,24 @@ export function TrackProvider({ children }: PropsWithChildren) {
       isLoadingTracks,
       trackStorageError,
       addRecordedTrack,
+      toggleTrackMuted,
+      renameTrack,
+      deleteTrack,
+      updateTrackVolume,
       getTracksByProjectId,
       getTrackCountForProject,
     }),
     [
       addRecordedTrack,
+      deleteTrack,
       getTrackCountForProject,
       getTracksByProjectId,
       isLoadingTracks,
+      renameTrack,
+      toggleTrackMuted,
       trackStorageError,
       tracks,
+      updateTrackVolume,
     ]
   );
 
