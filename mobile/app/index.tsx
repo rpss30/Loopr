@@ -5,8 +5,10 @@ import { useProjects } from '../features/projects/project-store';
 import { useTracks } from '../features/tracks/track-store';
 
 export default function ProjectListScreen() {
-  const { projects, isLoadingProjects, projectStorageError, renameProject } = useProjects();
-  const { getTrackCountForProject, isLoadingTracks, trackStorageError } = useTracks();
+  const { projects, isLoadingProjects, projectStorageError, renameProject, deleteProject } =
+    useProjects();
+  const { deleteTracksByProjectId, getTrackCountForProject, isLoadingTracks, trackStorageError } =
+    useTracks();
 
   const handleRenameProjectPress = (projectId: string, currentName: string) => {
     Alert.prompt(
@@ -45,6 +47,27 @@ export default function ProjectListScreen() {
       ],
       'plain-text',
       currentName
+    );
+  };
+
+  const handleDeleteProjectPress = (projectId: string, projectName: string) => {
+    Alert.alert(
+      'Delete project?',
+      `"${projectName}" and its track metadata will be removed from Loopr.`,
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            deleteTracksByProjectId(projectId);
+            deleteProject(projectId);
+          },
+        },
+      ]
     );
   };
 
@@ -119,6 +142,17 @@ export default function ProjectListScreen() {
                   accessibilityLabel={`Rename ${project.name}`}
                 >
                   <Text style={styles.projectEditButtonText}>✎</Text>
+                </Pressable>
+
+                <Pressable
+                  style={styles.projectDeleteButton}
+                  onPress={() => {
+                    handleDeleteProjectPress(project.id, project.name);
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Delete ${project.name}`}
+                >
+                  <Text style={styles.projectDeleteButtonText}>Delete</Text>
                 </Pressable>
 
                 <Pressable
@@ -229,6 +263,17 @@ const styles = StyleSheet.create({
     color: '#CBD5E1',
     fontSize: 14,
     fontWeight: '900',
+  },
+  projectDeleteButton: {
+    backgroundColor: '#450A0A',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  projectDeleteButtonText: {
+    color: '#FCA5A5',
+    fontSize: 12,
+    fontWeight: '800',
   },
   projectArrowButton: {
     paddingHorizontal: 4,
