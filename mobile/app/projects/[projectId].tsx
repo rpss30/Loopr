@@ -1,3 +1,4 @@
+import Slider from '@react-native-community/slider';
 import { Audio } from 'expo-av';
 import { Link, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
@@ -18,6 +19,7 @@ export default function LoopWorkspaceScreen() {
     renameTrack,
     toggleTrackMuted,
     trackStorageError,
+    updateTrackVolume,
   } = useTracks();
 
   const [recording, setRecording] = useState<Audio.Recording | null>(null);
@@ -262,6 +264,22 @@ export default function LoopWorkspaceScreen() {
     ]);
   };
 
+  const previewTrackVolume = (track: LoopTrack, volume: number) => {
+    if (playingTrackId !== track.id || !soundRef.current) {
+      return;
+    }
+
+    void soundRef.current.setVolumeAsync(volume);
+  };
+
+  const handleVolumeChangeComplete = (track: LoopTrack, volume: number) => {
+    updateTrackVolume(track.id, volume);
+
+    if (playingTrackId === track.id && soundRef.current) {
+      void soundRef.current.setVolumeAsync(volume);
+    }
+  };
+
   if (!project) {
     return (
       <SafeAreaView style={styles.safeArea}>
@@ -343,6 +361,12 @@ export default function LoopWorkspaceScreen() {
                   onRenamePress={() => {
                     handleRenamePress(track);
                   }}
+                  onVolumeChange={(volume) => {
+                    previewTrackVolume(track, volume);
+                  }}
+                  onVolumeChangeComplete={(volume) => {
+                    handleVolumeChangeComplete(track, volume);
+                  }}
                 />
               ))}
             </View>
@@ -367,6 +391,8 @@ function TrackCard({
   onMutePress,
   onPlayPress,
   onRenamePress,
+  onVolumeChange,
+  onVolumeChangeComplete,
 }: {
   track: LoopTrack;
   isPlaying: boolean;
@@ -374,8 +400,15 @@ function TrackCard({
   onMutePress: () => void;
   onPlayPress: () => void;
   onRenamePress: () => void;
+  onVolumeChange: (volume: number) => void;
+  onVolumeChangeComplete: (volume: number) => void;
 }) {
   const hasAudio = Boolean(track.localUri);
+  const [draftVolume, setDraftVolume] = useState(track.volume);
+
+  useEffect(() => {
+    setDraftVolume(track.volume);
+  }, [track.volume]);
 
   return (
     <View style={styles.trackCard}>
@@ -394,8 +427,29 @@ function TrackCard({
         </View>
 
         <Text style={styles.trackMeta}>
-          {formatDuration(track.durationMs)} · volume {Math.round(track.volume * 100)}%
+          {formatDuration(track.durationMs)} · volume {Math.round(draftVolume * 100)}%
         </Text>
+
+        <View style={styles.volumeControl}>
+          <Slider
+            style={styles.volumeSlider}
+            value={draftVolume}
+            minimumValue={0}
+            maximumValue={1}
+            step={0.01}
+            minimumTrackTintColor="#38BDF8"
+            maximumTrackTintColor="#334155"
+            thumbTintColor="#F9FAFB"
+            onValueChange={(volume) => {
+              setDraftVolume(volume);
+              onVolumeChange(volume);
+            }}
+            onSlidingComplete={(volume) => {
+              setDraftVolume(volume);
+              onVolumeChangeComplete(volume);
+            }}
+          />
+        </View>
 
         <View style={styles.trackControls}>
           <Pressable
@@ -604,6 +658,13 @@ const styles = StyleSheet.create({
     color: '#94A3B8',
     fontSize: 14,
   },
+  volumeControl: {
+    marginTop: 6,
+  },
+  volumeSlider: {
+    width: '100%',
+    height: 36,
+  },
   trackControls: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -671,7 +732,6 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     paddingHorizontal: 14,
     paddingVertical: 8,
-    marginTop: 8,
   },
   trackPlayButtonDisabled: {
     backgroundColor: '#1F2937',
