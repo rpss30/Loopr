@@ -108,8 +108,6 @@ export default function ProjectListScreen() {
                       {project.bpm} BPM · {trackCount} {trackCount === 1 ? 'track' : 'tracks'}
                     </Text>
                   </View>
-
-                  <Text style={styles.cardArrow}>›</Text>
                 </Pressable>
 
                 <Pressable
@@ -121,6 +119,17 @@ export default function ProjectListScreen() {
                   accessibilityLabel={`Rename ${project.name}`}
                 >
                   <Text style={styles.projectEditButtonText}>✎</Text>
+                </Pressable>
+
+                <Pressable
+                  style={styles.projectArrowButton}
+                  onPress={() => {
+                    router.push(`/projects/${project.id}`);
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Open ${project.name}`}
+                >
+                  <Text style={styles.cardArrow}>›</Text>
                 </Pressable>
               </View>
             );
@@ -206,10 +215,6 @@ const styles = StyleSheet.create({
   },
   projectCardMain: {
     flex: 1,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: 12,
   },
   projectText: {
     flex: 1,
@@ -224,6 +229,10 @@ const styles = StyleSheet.create({
     color: '#CBD5E1',
     fontSize: 14,
     fontWeight: '900',
+  },
+  projectArrowButton: {
+    paddingHorizontal: 4,
+    paddingVertical: 2,
   },
   projectName: {
     color: '#F9FAFB',
