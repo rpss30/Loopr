@@ -12,6 +12,7 @@ export default function LoopWorkspaceScreen() {
   const { getProjectById, isLoadingProjects } = useProjects();
   const {
     addRecordedTrack,
+    deleteTrack,
     getTracksByProjectId,
     isLoadingTracks,
     renameTrack,
@@ -237,6 +238,30 @@ export default function LoopWorkspaceScreen() {
     );
   };
 
+  const deleteSelectedTrack = async (track: LoopTrack) => {
+    if (playingTrackId === track.id) {
+      await stopPlayback();
+    }
+
+    deleteTrack(track.id);
+  };
+
+  const handleDeletePress = (track: LoopTrack) => {
+    Alert.alert('Delete track?', `"${track.name}" will be removed from this project.`, [
+      {
+        text: 'Cancel',
+        style: 'cancel',
+      },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: () => {
+          void deleteSelectedTrack(track);
+        },
+      },
+    ]);
+  };
+
   if (!project) {
     return (
       <SafeAreaView style={styles.safeArea}>
@@ -306,6 +331,9 @@ export default function LoopWorkspaceScreen() {
                   key={track.id}
                   track={track}
                   isPlaying={playingTrackId === track.id}
+                  onDeletePress={() => {
+                    handleDeletePress(track);
+                  }}
                   onMutePress={() => {
                     void handleMutePress(track);
                   }}
@@ -335,12 +363,14 @@ export default function LoopWorkspaceScreen() {
 function TrackCard({
   track,
   isPlaying,
+  onDeletePress,
   onMutePress,
   onPlayPress,
   onRenamePress,
 }: {
   track: LoopTrack;
   isPlaying: boolean;
+  onDeletePress: () => void;
   onMutePress: () => void;
   onPlayPress: () => void;
   onRenamePress: () => void;
@@ -398,6 +428,10 @@ function TrackCard({
             >
               {track.muted ? 'Unmute' : 'Mute'}
             </Text>
+          </Pressable>
+
+          <Pressable style={styles.trackDeleteButton} onPress={onDeletePress}>
+            <Text style={styles.trackDeleteButtonText}>Delete</Text>
           </Pressable>
         </View>
       </View>
@@ -667,5 +701,17 @@ const styles = StyleSheet.create({
   },
   trackMuteButtonTextActive: {
     color: '#FCA5A5',
+  },
+  trackDeleteButton: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#450A0A',
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  trackDeleteButtonText: {
+    color: '#FCA5A5',
+    fontSize: 13,
+    fontWeight: '800',
   },
 });

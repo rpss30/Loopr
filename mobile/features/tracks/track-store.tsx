@@ -24,6 +24,7 @@ type TrackContextValue = {
   addRecordedTrack: (input: AddRecordedTrackInput) => LoopTrack;
   toggleTrackMuted: (trackId: string) => void;
   renameTrack: (trackId: string, name: string) => void;
+  deleteTrack: (trackId: string) => void;
   getTracksByProjectId: (projectId: string) => LoopTrack[];
   getTrackCountForProject: (projectId: string) => number;
 };
@@ -217,6 +218,36 @@ export function TrackProvider({ children }: PropsWithChildren) {
     );
   }, []);
 
+  const deleteTrack = useCallback((trackId: string) => {
+    const now = new Date().toISOString();
+
+    setTracks((currentTracks) => {
+      const trackToDelete = currentTracks.find((track) => track.id === trackId);
+
+      if (!trackToDelete) {
+        return currentTracks;
+      }
+
+      const remainingTracks = currentTracks.filter((track) => track.id !== trackId);
+
+      const reorderedProjectTracks = new Map(
+        remainingTracks
+          .filter((track) => track.projectId === trackToDelete.projectId)
+          .sort((left, right) => left.orderIndex - right.orderIndex)
+          .map((track, index) => [
+            track.id,
+            {
+              ...track,
+              orderIndex: index,
+              updatedAt: now,
+            },
+          ])
+      );
+
+      return remainingTracks.map((track) => reorderedProjectTracks.get(track.id) ?? track);
+    });
+  }, []);
+
   const getTracksByProjectId = useCallback(
     (projectId: string) => {
       return tracks
@@ -241,11 +272,13 @@ export function TrackProvider({ children }: PropsWithChildren) {
       addRecordedTrack,
       toggleTrackMuted,
       renameTrack,
+      deleteTrack,
       getTracksByProjectId,
       getTrackCountForProject,
     }),
     [
       addRecordedTrack,
+      deleteTrack,
       getTrackCountForProject,
       getTracksByProjectId,
       isLoadingTracks,
