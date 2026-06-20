@@ -1,12 +1,52 @@
-import { Link, router } from 'expo-router';
-import { Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { router } from 'expo-router';
+import { Alert, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { useProjects } from '../features/projects/project-store';
 import { useTracks } from '../features/tracks/track-store';
 
 export default function ProjectListScreen() {
-  const { projects, isLoadingProjects, projectStorageError } = useProjects();
+  const { projects, isLoadingProjects, projectStorageError, renameProject } = useProjects();
   const { getTrackCountForProject, isLoadingTracks, trackStorageError } = useTracks();
+
+  const handleRenameProjectPress = (projectId: string, currentName: string) => {
+    Alert.prompt(
+      'Rename project',
+      'Enter a clear name for this loop project.',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Save',
+          onPress: (name?: string) => {
+            const trimmedName = name?.trim() ?? '';
+
+            if (!trimmedName) {
+              Alert.alert('Project name required', 'Type a project name to save, or tap Cancel.', [
+                {
+                  text: 'Try again',
+                  onPress: () => {
+                    handleRenameProjectPress(projectId, currentName);
+                  },
+                },
+                {
+                  text: 'Cancel',
+                  style: 'cancel',
+                },
+              ]);
+
+              return;
+            }
+
+            renameProject(projectId, trimmedName);
+          },
+        },
+      ],
+      'plain-text',
+      currentName
+    );
+  };
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -49,26 +89,42 @@ export default function ProjectListScreen() {
         </View>
 
         <View style={styles.projectList}>
-          {projects.map((project) => (
-            <Link key={project.id} href={`/projects/${project.id}`} asChild>
-              <Pressable style={styles.projectCard}>
-                <View>
-                  <Text style={styles.projectName}>{project.name}</Text>
-                  <Text style={styles.projectMeta}>
-                    {project.bpm} BPM ·{' '}
-                    {isLoadingTracks ? project.trackCount : getTrackCountForProject(project.id)}{' '}
-                    {(isLoadingTracks
-                      ? project.trackCount
-                      : getTrackCountForProject(project.id)) === 1
-                      ? 'track'
-                      : 'tracks'}
-                  </Text>
-                </View>
+          {projects.map((project) => {
+            const trackCount = isLoadingTracks
+              ? project.trackCount
+              : getTrackCountForProject(project.id);
 
-                <Text style={styles.cardArrow}>›</Text>
-              </Pressable>
-            </Link>
-          ))}
+            return (
+              <View key={project.id} style={styles.projectCard}>
+                <Pressable
+                  style={styles.projectCardMain}
+                  onPress={() => {
+                    router.push(`/projects/${project.id}`);
+                  }}
+                >
+                  <View style={styles.projectText}>
+                    <Text style={styles.projectName}>{project.name}</Text>
+                    <Text style={styles.projectMeta}>
+                      {project.bpm} BPM · {trackCount} {trackCount === 1 ? 'track' : 'tracks'}
+                    </Text>
+                  </View>
+
+                  <Text style={styles.cardArrow}>›</Text>
+                </Pressable>
+
+                <Pressable
+                  style={styles.projectEditButton}
+                  onPress={() => {
+                    handleRenameProjectPress(project.id, project.name);
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Rename ${project.name}`}
+                >
+                  <Text style={styles.projectEditButtonText}>✎</Text>
+                </Pressable>
+              </View>
+            );
+          })}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -146,6 +202,28 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    gap: 12,
+  },
+  projectCardMain: {
+    flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 12,
+  },
+  projectText: {
+    flex: 1,
+  },
+  projectEditButton: {
+    backgroundColor: '#1F2937',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  projectEditButtonText: {
+    color: '#CBD5E1',
+    fontSize: 14,
+    fontWeight: '900',
   },
   projectName: {
     color: '#F9FAFB',

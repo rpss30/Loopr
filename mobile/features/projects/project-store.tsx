@@ -21,6 +21,7 @@ type ProjectContextValue = {
   isLoadingProjects: boolean;
   projectStorageError: string | null;
   createProject: (input: CreateProjectInput) => LoopProject;
+  renameProject: (projectId: string, name: string) => void;
   getProjectById: (projectId: string) => LoopProject | undefined;
 };
 
@@ -110,6 +111,30 @@ export function ProjectProvider({ children }: PropsWithChildren) {
     return project;
   }, []);
 
+  const renameProject = useCallback((projectId: string, name: string) => {
+    const trimmedName = name.trim();
+
+    if (!trimmedName) {
+      return;
+    }
+
+    const now = new Date().toISOString();
+
+    setProjects((currentProjects) =>
+      currentProjects.map((project) => {
+        if (project.id !== projectId) {
+          return project;
+        }
+
+        return {
+          ...project,
+          name: trimmedName,
+          updatedAt: now,
+        };
+      })
+    );
+  }, []);
+
   const getProjectById = useCallback(
     (projectId: string) => {
       return projects.find((project) => project.id === projectId);
@@ -123,9 +148,10 @@ export function ProjectProvider({ children }: PropsWithChildren) {
       isLoadingProjects,
       projectStorageError,
       createProject,
+      renameProject,
       getProjectById,
     }),
-    [createProject, getProjectById, isLoadingProjects, projectStorageError, projects]
+    [createProject, getProjectById, isLoadingProjects, projectStorageError, projects, renameProject]
   );
 
   return <ProjectContext.Provider value={value}>{children}</ProjectContext.Provider>;
