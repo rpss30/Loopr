@@ -11,13 +11,17 @@ export async function loadTracksFromStorage(): Promise<LoopTrack[]> {
     return [];
   }
 
-  const parsedTracks: unknown = JSON.parse(rawTracks);
+  try {
+    const parsedTracks: unknown = JSON.parse(rawTracks);
 
-  if (!Array.isArray(parsedTracks)) {
+    if (!Array.isArray(parsedTracks)) {
+      return [];
+    }
+
+    return parsedTracks.filter(isLoopTrack);
+  } catch {
     return [];
   }
-
-  return parsedTracks.filter(isLoopTrack);
 }
 
 export async function saveTracksToStorage(tracks: LoopTrack[]) {
