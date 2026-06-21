@@ -11,13 +11,17 @@ export async function loadProjectsFromStorage(): Promise<LoopProject[]> {
     return [];
   }
 
-  const parsedProjects: unknown = JSON.parse(rawProjects);
+  try {
+    const parsedProjects: unknown = JSON.parse(rawProjects);
 
-  if (!Array.isArray(parsedProjects)) {
+    if (!Array.isArray(parsedProjects)) {
+      return [];
+    }
+
+    return parsedProjects.filter(isLoopProject);
+  } catch {
     return [];
   }
-
-  return parsedProjects.filter(isLoopProject);
 }
 
 export async function saveProjectsToStorage(projects: LoopProject[]) {
