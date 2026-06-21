@@ -2,13 +2,19 @@ import { router } from 'expo-router';
 import { Alert, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { useProjects } from '../features/projects/project-store';
+import { deleteLocalAudioFile } from '../features/tracks/audio-file-cleanup';
 import { useTracks } from '../features/tracks/track-store';
 
 export default function ProjectListScreen() {
   const { projects, isLoadingProjects, projectStorageError, renameProject, deleteProject } =
     useProjects();
-  const { deleteTracksByProjectId, getTrackCountForProject, isLoadingTracks, trackStorageError } =
-    useTracks();
+  const {
+    deleteTracksByProjectId,
+    getTrackCountForProject,
+    getTracksByProjectId,
+    isLoadingTracks,
+    trackStorageError,
+  } = useTracks();
 
   const handleRenameProjectPress = (projectId: string, currentName: string) => {
     Alert.prompt(
@@ -53,7 +59,7 @@ export default function ProjectListScreen() {
   const handleDeleteProjectPress = (projectId: string, projectName: string) => {
     Alert.alert(
       'Delete project?',
-      `"${projectName}" and its track metadata will be removed from Loopr.`,
+      `"${projectName}" and its saved track data will be removed from Loopr.`,
       [
         {
           text: 'Cancel',
@@ -63,8 +69,21 @@ export default function ProjectListScreen() {
           text: 'Delete',
           style: 'destructive',
           onPress: () => {
+            const projectTracks = getTracksByProjectId(projectId);
+            const fileDeletionResults = projectTracks.map((track) =>
+              deleteLocalAudioFile(track.localUri)
+            );
+            const didDeleteAllAudioFiles = fileDeletionResults.every(Boolean);
+
             deleteTracksByProjectId(projectId);
             deleteProject(projectId);
+
+            if (!didDeleteAllAudioFiles) {
+              Alert.alert(
+                'Project removed',
+                'Loopr removed the project, but could not delete every local audio file.'
+              );
+            }
           },
         },
       ]
