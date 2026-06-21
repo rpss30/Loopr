@@ -1,0 +1,12 @@
+import { ErrorRequestHandler } from 'express';
+
+export const errorHandler: ErrorRequestHandler = (error, _request, response, _next) => {
+  console.error(error);
+
+  response.status(500).json({
+    error: {
+      code: 'internal_server_error',
+      message: 'Something went wrong.',
+    },
+  });
+};
