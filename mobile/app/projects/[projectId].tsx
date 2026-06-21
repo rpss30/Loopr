@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Alert, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { useProjects } from '../../features/projects/project-store';
+import { deleteLocalAudioFile } from '../../features/tracks/audio-file-cleanup';
 import { useTracks } from '../../features/tracks/track-store';
 import { LoopTrack } from '../../types/track';
 
@@ -358,7 +359,16 @@ export default function LoopWorkspaceScreen() {
       await stopSessionPlayback();
     }
 
+    const didDeleteAudioFile = deleteLocalAudioFile(track.localUri);
+
     deleteTrack(track.id);
+
+    if (track.localUri && !didDeleteAudioFile) {
+      Alert.alert(
+        'Track removed',
+        'Loopr removed the track, but could not delete its local audio file.'
+      );
+    }
   };
 
   const handleDeletePress = (track: LoopTrack) => {
