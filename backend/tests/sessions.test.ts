@@ -6,9 +6,9 @@ import { projectService } from '../src/services/project.service';
 import { sessionService } from '../src/services/session.service';
 
 describe('session routes', () => {
-  beforeEach(() => {
-    projectService.reset();
-    sessionService.reset();
+  beforeEach(async () => {
+    await projectService.reset();
+    await sessionService.reset();
   });
 
   it('lists sessions', async () => {
@@ -43,7 +43,7 @@ describe('session routes', () => {
   });
 
   it('creates a session for an existing project', async () => {
-    const project = projectService.createProject({
+    const project = await projectService.createProject({
       name: 'Acoustic Project',
       bpm: 90,
     });
@@ -69,7 +69,7 @@ describe('session routes', () => {
   });
 
   it('defaults bpm to 120 when omitted', async () => {
-    const project = projectService.createProject({
+    const project = await projectService.createProject({
       name: 'Untitled Project',
     });
 
@@ -83,7 +83,7 @@ describe('session routes', () => {
   });
 
   it('returns created sessions from the list endpoint', async () => {
-    const project = projectService.createProject({
+    const project = await projectService.createProject({
       name: 'Layered Project',
       bpm: 100,
     });
@@ -111,7 +111,7 @@ describe('session routes', () => {
   });
 
   it('gets a session by id', async () => {
-    const project = projectService.createProject({
+    const project = await projectService.createProject({
       name: 'Guitar Ideas',
       bpm: 110,
     });
