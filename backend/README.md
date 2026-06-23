@@ -68,6 +68,26 @@ POST /api/v1/sessions
 GET  /api/v1/sessions/:sessionId
 ```
 
+## Environment variables
+
+Copy the example environment file if you want local overrides:
+
+```bash
+cp .env.example .env
+```
+
+Current variables:
+
+```bash
+NODE_ENV=development
+PORT=3001
+PERSISTENCE_DRIVER=memory
+AWS_REGION=us-west-2
+DYNAMODB_METADATA_TABLE_NAME=loopr-metadata
+```
+
+`PERSISTENCE_DRIVER` currently supports `memory`. The `dynamodb` option is reserved for the upcoming DynamoDB repository implementation.
+
 Current limitations:
 
 - Data is stored in memory only.

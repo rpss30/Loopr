@@ -1,9 +1,8 @@
 import 'dotenv/config';
 
 import { app } from './app';
+import { env } from './config/env';
 
-const port = Number(process.env.PORT ?? 3001);
-
-app.listen(port, () => {
-  console.log(`Loopr API listening on port ${port}`);
+app.listen(env.PORT, () => {
+  console.log(`Loopr API listening on port ${env.PORT}`);
 });
