@@ -1,0 +1,37 @@
+# dependencies
+node_modules/
+**/node_modules/
+
+# builds
+dist/
+**/dist/
+web-build/
+
+# test output
+coverage/
+**/coverage/
+
+# caches
+.expo/
+**/.expo/
+.vite/
+**/.vite/
+*.tsbuildinfo
+
+# logs
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# env
+.env
+.env*.local
+
+# macOS
+.DS_Store
+
+# native generated folders
+ios/
+android/
+**/ios/
+**/android/
