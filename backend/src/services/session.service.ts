@@ -1,21 +1,21 @@
 import { randomUUID } from 'crypto';
 
 import { CreateSessionInput, LoopSession } from '../models/session';
+import { sessionRepository } from '../repositories/in-memory-session.repository';
+import { SessionRepository } from '../repositories/session.repository';
 
 export class SessionService {
-  private sessions = new Map<string, LoopSession>();
+  constructor(private readonly repository: SessionRepository) {}
 
   listSessions() {
-    return Array.from(this.sessions.values()).sort((a, b) =>
-      b.updatedAt.localeCompare(a.updatedAt)
-    );
+    return this.repository.listSessions();
   }
 
   getSessionById(sessionId: string) {
-    return this.sessions.get(sessionId) ?? null;
+    return this.repository.getSessionById(sessionId);
   }
 
-  createSession(input: CreateSessionInput) {
+  async createSession(input: CreateSessionInput) {
     const now = new Date().toISOString();
 
     const session: LoopSession = {
@@ -28,14 +28,12 @@ export class SessionService {
       updatedAt: now,
     };
 
-    this.sessions.set(session.id, session);
-
-    return session;
+    return this.repository.createSession(session);
   }
 
   reset() {
-    this.sessions.clear();
+    return this.repository.reset();
   }
 }
 
-export const sessionService = new SessionService();
+export const sessionService = new SessionService(sessionRepository);

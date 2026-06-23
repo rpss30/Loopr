@@ -7,22 +7,24 @@ import { projectService } from '../services/project.service';
 
 export const projectsRouter = Router();
 
-projectsRouter.get('/', (_request, response) => {
+projectsRouter.get('/', async (_request, response) => {
+  const projects = await projectService.listProjects();
+
   response.status(200).json({
-    projects: projectService.listProjects(),
+    projects,
   });
 });
 
-projectsRouter.post('/', validateBody(createProjectSchema), (request, response) => {
-  const project = projectService.createProject(request.body as CreateProjectInput);
+projectsRouter.post('/', validateBody(createProjectSchema), async (request, response) => {
+  const project = await projectService.createProject(request.body as CreateProjectInput);
 
   response.status(201).json({
     project,
   });
 });
 
-projectsRouter.get('/:projectId', (request, response) => {
-  const project = projectService.getProjectById(request.params.projectId);
+projectsRouter.get('/:projectId', async (request, response) => {
+  const project = await projectService.getProjectById(request.params.projectId);
 
   if (!project) {
     response.status(404).json({

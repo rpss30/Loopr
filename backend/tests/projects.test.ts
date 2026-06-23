@@ -5,8 +5,8 @@ import { app } from '../src/app';
 import { projectService } from '../src/services/project.service';
 
 describe('project routes', () => {
-  beforeEach(() => {
-    projectService.reset();
+  beforeEach(async () => {
+    await projectService.reset();
   });
 
   it('lists projects', async () => {

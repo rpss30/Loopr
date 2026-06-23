@@ -1,21 +1,21 @@
 import { randomUUID } from 'crypto';
 
 import { CreateProjectInput, LoopProject } from '../models/project';
+import { projectRepository } from '../repositories/in-memory-project.repository';
+import { ProjectRepository } from '../repositories/project.repository';
 
 export class ProjectService {
-  private projects = new Map<string, LoopProject>();
+  constructor(private readonly repository: ProjectRepository) {}
 
   listProjects() {
-    return Array.from(this.projects.values()).sort((a, b) =>
-      b.updatedAt.localeCompare(a.updatedAt)
-    );
+    return this.repository.listProjects();
   }
 
   getProjectById(projectId: string) {
-    return this.projects.get(projectId) ?? null;
+    return this.repository.getProjectById(projectId);
   }
 
-  createProject(input: CreateProjectInput) {
+  async createProject(input: CreateProjectInput) {
     const now = new Date().toISOString();
 
     const project: LoopProject = {
@@ -27,14 +27,12 @@ export class ProjectService {
       updatedAt: now,
     };
 
-    this.projects.set(project.id, project);
-
-    return project;
+    return this.repository.createProject(project);
   }
 
   reset() {
-    this.projects.clear();
+    return this.repository.reset();
   }
 }
 
-export const projectService = new ProjectService();
+export const projectService = new ProjectService(projectRepository);

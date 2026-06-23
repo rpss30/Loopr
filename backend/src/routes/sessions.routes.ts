@@ -8,15 +8,17 @@ import { sessionService } from '../services/session.service';
 
 export const sessionsRouter = Router();
 
-sessionsRouter.get('/', (_request, response) => {
+sessionsRouter.get('/', async (_request, response) => {
+  const sessions = await sessionService.listSessions();
+
   response.status(200).json({
-    sessions: sessionService.listSessions(),
+    sessions,
   });
 });
 
-sessionsRouter.post('/', validateBody(createSessionSchema), (request, response) => {
+sessionsRouter.post('/', validateBody(createSessionSchema), async (request, response) => {
   const input = request.body as CreateSessionInput;
-  const project = projectService.getProjectById(input.projectId);
+  const project = await projectService.getProjectById(input.projectId);
 
   if (!project) {
     response.status(404).json({
@@ -28,15 +30,15 @@ sessionsRouter.post('/', validateBody(createSessionSchema), (request, response) 
     return;
   }
 
-  const session = sessionService.createSession(input);
+  const session = await sessionService.createSession(input);
 
   response.status(201).json({
     session,
   });
 });
 
-sessionsRouter.get('/:sessionId', (request, response) => {
-  const session = sessionService.getSessionById(request.params.sessionId);
+sessionsRouter.get('/:sessionId', async (request, response) => {
+  const session = await sessionService.getSessionById(request.params.sessionId);
 
   if (!session) {
     response.status(404).json({
