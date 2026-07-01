@@ -16,6 +16,7 @@ const envSchema = z.object({
   AWS_REGION: z.string().min(1).default('us-west-2'),
   DYNAMODB_METADATA_TABLE_NAME: z.string().min(1).default('loopr-metadata'),
   DYNAMODB_ENDPOINT: optionalUrlSchema,
+  S3_AUDIO_BUCKET_NAME: z.string().min(1).default('loopr-audio-local'),
 });
 
 export type BackendEnv = z.infer<typeof envSchema>;

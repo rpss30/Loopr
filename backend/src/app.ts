@@ -6,6 +6,7 @@ import { errorHandler } from './middleware/error-handler';
 import { notFoundHandler } from './middleware/not-found';
 import { projectsRouter } from './routes/projects.routes';
 import { sessionsRouter } from './routes/sessions.routes';
+import { audioRouter } from './routes/audio.routes';
 
 export const app = express();
 
@@ -22,6 +23,7 @@ app.get('/health', (_request, response) => {
 
 app.use('/api/v1/projects', projectsRouter);
 app.use('/api/v1/sessions', sessionsRouter);
+app.use('/api/v1/audio', audioRouter);
 
 app.use(notFoundHandler);
 app.use(errorHandler);

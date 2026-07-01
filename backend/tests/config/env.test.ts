@@ -13,6 +13,7 @@ describe('backend env config', () => {
       AWS_REGION: 'us-west-2',
       DYNAMODB_METADATA_TABLE_NAME: 'loopr-metadata',
       DYNAMODB_ENDPOINT: undefined,
+      S3_AUDIO_BUCKET_NAME: 'loopr-audio-local',
     });
   });
 
@@ -30,12 +31,14 @@ describe('backend env config', () => {
       AWS_REGION: 'ca-central-1',
       DYNAMODB_METADATA_TABLE_NAME: 'loopr-dev-metadata',
       DYNAMODB_ENDPOINT: 'http://localhost:8000',
+      S3_AUDIO_BUCKET_NAME: 'loopr-dev-audio',
     });
 
     expect(env.PERSISTENCE_DRIVER).toBe('dynamodb');
     expect(env.AWS_REGION).toBe('ca-central-1');
     expect(env.DYNAMODB_METADATA_TABLE_NAME).toBe('loopr-dev-metadata');
     expect(env.DYNAMODB_ENDPOINT).toBe('http://localhost:8000');
+    expect(env.S3_AUDIO_BUCKET_NAME).toBe('loopr-dev-audio');
   });
 
   it('treats an empty DynamoDB endpoint as unset', () => {
