@@ -2,7 +2,7 @@
 
 This document describes the planned S3 object storage design for Loopr audio files.
 
-This branch only adds design helpers and documentation. It does not upload mobile audio yet and does not create an S3 bucket yet.
+This branch adds backend design helpers, route shape, validation, and documentation. It does not upload mobile audio yet and does not create an S3 bucket yet.
 
 ## Goal
 
@@ -37,31 +37,21 @@ Example:
 projects/project-1/sessions/session-1/tracks/track-1.m4a
 ```
 
-## Why this shape
-
-This key structure keeps audio files grouped by project and session. It makes future cleanup, debugging, and object browsing easier.
-
-For example, all tracks for one session share this prefix:
+All tracks for one session share this prefix:
 
 ```bash
 projects/project-1/sessions/session-1/tracks
 ```
 
-## Current MVP assumption
+## Backend route shape
 
-The mobile app currently records local audio files through Expo. The first cloud upload path should assume short recorded clips and use `.m4a` as the default extension.
-
-This is not intended to be a professional live looper or low-latency pedal system. The cloud path is for saving and syncing captured loop ideas.
-
-## Future upload flow
-
-Planned backend route:
+Planned route:
 
 ```bash
 POST /api/v1/audio/upload-url
 ```
 
-Possible request:
+Current request shape:
 
 ```bash
 {
@@ -72,17 +62,77 @@ Possible request:
 }
 ```
 
-Possible response:
+Supported content types currently accepted by validation:
+
+```bash
+audio/mp4
+audio/m4a
+audio/x-m4a
+audio/wav
+```
+
+Current response shape:
 
 ```bash
 {
-  "uploadUrl": "presigned-upload-url",
-  "s3Bucket": "loopr-audio-dev",
-  "s3Key": "projects/project-1/sessions/session-1/tracks/track-1.m4a"
+  "error": {
+    "code": "presigned_upload_not_implemented",
+    "message": "Presigned S3 upload URLs will be added in a future branch."
+  },
+  "upload": {
+    "s3Bucket": "loopr-audio-local",
+    "s3Key": "projects/project-1/sessions/session-1/tracks/track-1.m4a",
+    "contentType": "audio/mp4"
+  }
 }
 ```
 
-The mobile app would then upload the local audio file directly to S3 using the presigned URL.
+The route intentionally returns `501` for now because real presigned S3 URLs are not implemented yet.
+
+## Future upload flow
+
+The planned production flow is:
+
+```bash
+mobile records local audio
+mobile asks backend for upload URL
+backend validates project/session/track ownership
+backend builds S3 object key
+backend generates presigned S3 PUT URL
+mobile uploads local audio file directly to S3
+backend stores track metadata and S3 reference in DynamoDB
+mobile can later stream/download audio from cloud-backed metadata
+```
+
+## Backend environment variable
+
+The backend now includes:
+
+```bash
+S3_AUDIO_BUCKET_NAME=loopr-audio-local
+```
+
+This is currently used only for route shape and tests. A later branch should connect it to real S3 presigned URL generation.
+
+## Current MVP assumption
+
+The mobile app currently records local audio files through Expo. The first cloud upload path should assume short recorded clips and use `.m4a` as the default extension.
+
+Loopr should still be positioned as a mobile loop-building workspace for capturing and layering ideas, not a professional low-latency live looper pedal.
+
+## Future AWS work
+
+Future branches should add:
+
+```bash
+S3 audio bucket Terraform
+S3 bucket security policy
+S3 CORS policy for mobile uploads if needed
+AWS SDK S3 client factory
+presigned PUT URL generation
+track metadata model with S3 references
+mobile upload integration after local/cloud backend is stable
+```bash
 
 ## Current limitations
 - No S3 bucket exists yet.
