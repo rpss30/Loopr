@@ -1,0 +1,6 @@
+project_name                    = "loopr"
+environment                     = "dev"
+aws_region                      = "us-west-2"
+metadata_table_name             = "loopr-dev-metadata"
+enable_point_in_time_recovery   = true
+enable_deletion_protection      = false
