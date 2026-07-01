@@ -1,8 +1,8 @@
 import { randomUUID } from 'crypto';
 
 import { CreateProjectInput, LoopProject } from '../models/project';
-import { projectRepository } from '../repositories/in-memory-project.repository';
 import { ProjectRepository } from '../repositories/project.repository';
+import { repositories } from '../repositories/repository-factory';
 
 export class ProjectService {
   constructor(private readonly repository: ProjectRepository) {}
@@ -35,4 +35,4 @@ export class ProjectService {
   }
 }
 
-export const projectService = new ProjectService(projectRepository);
+export const projectService = new ProjectService(repositories.projectRepository);

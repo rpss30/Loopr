@@ -1,8 +1,8 @@
 import { randomUUID } from 'crypto';
 
 import { CreateSessionInput, LoopSession } from '../models/session';
-import { sessionRepository } from '../repositories/in-memory-session.repository';
 import { SessionRepository } from '../repositories/session.repository';
+import { repositories } from '../repositories/repository-factory';
 
 export class SessionService {
   constructor(private readonly repository: SessionRepository) {}
@@ -36,4 +36,4 @@ export class SessionService {
   }
 }
 
-export const sessionService = new SessionService(sessionRepository);
+export const sessionService = new SessionService(repositories.sessionRepository);

@@ -86,7 +86,9 @@ AWS_REGION=us-west-2
 DYNAMODB_METADATA_TABLE_NAME=loopr-metadata
 ```
 
-`PERSISTENCE_DRIVER` currently supports `memory`. The `dynamodb` option is reserved for the upcoming DynamoDB repository implementation.
+`PERSISTENCE_DRIVER=memory` is the default local mode.
+
+`PERSISTENCE_DRIVER=dynamodb` selects the DynamoDB repository implementations, but it requires AWS credentials and a DynamoDB table matching the planned metadata design. Terraform and deployed AWS resources are intentionally not included yet.
 
 Current limitations:
 
