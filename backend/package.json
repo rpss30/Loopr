@@ -11,7 +11,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "format": "prettier . --write",
-    "format:check": "prettier . --check"
+    "format:check": "prettier . --check",
+    "dynamodb:setup:local": "tsx scripts/setup-local-dynamodb.ts",
+    "dynamodb:verify:local": "tsx scripts/verify-local-dynamodb.ts"
   },
   "keywords": [],
   "author": "",

@@ -1,7 +1,7 @@
 import {
-  GetCommand,
   PutCommand,
   QueryCommand,
+  ScanCommand,
   type DynamoDBDocumentClient,
 } from '@aws-sdk/lib-dynamodb';
 
@@ -34,17 +34,18 @@ export class DynamoDbSessionRepository implements SessionRepository {
 
   async listSessions() {
     const response = await this.client.send(
-      new QueryCommand({
+      new ScanCommand({
         TableName: this.env.DYNAMODB_METADATA_TABLE_NAME,
-        IndexName: 'gsi2',
-        KeyConditionExpression: 'gsi2sk = :gsi2sk',
+        FilterExpression: 'entityType = :entityType',
         ExpressionAttributeValues: {
-          ':gsi2sk': 'METADATA',
+          ':entityType': DYNAMODB_ENTITY_TYPES.session,
         },
       })
     );
 
-    return (response.Items ?? []).map((item) => this.toSession(item as DynamoDbSessionItem));
+    return (response.Items ?? [])
+      .map((item) => this.toSession(item as DynamoDbSessionItem))
+      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
   }
 
   async listSessionsByProject(projectId: string) {
@@ -61,7 +62,9 @@ export class DynamoDbSessionRepository implements SessionRepository {
       })
     );
 
-    return (response.Items ?? []).map((item) => this.toSession(item as DynamoDbSessionItem));
+    return (response.Items ?? [])
+      .map((item) => this.toSession(item as DynamoDbSessionItem))
+      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
   }
 
   async getSessionById(sessionId: string) {

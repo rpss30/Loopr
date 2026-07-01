@@ -1,4 +1,4 @@
-import { PutCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
+import { PutCommand, QueryCommand, ScanCommand } from '@aws-sdk/lib-dynamodb';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { LoopSession } from '../../src/models/session';
@@ -109,7 +109,7 @@ describe('DynamoDbSessionRepository', () => {
     expect(result).toBeNull();
   });
 
-  it('lists sessions using the session lookup index', async () => {
+  it('lists sessions by scanning session metadata items', async () => {
     const client = createMockClient();
     client.send.mockResolvedValueOnce({
       Items: [createSessionItem()],
@@ -123,13 +123,12 @@ describe('DynamoDbSessionRepository', () => {
 
     const command = client.send.mock.calls[0][0];
 
-    expect(command).toBeInstanceOf(QueryCommand);
+    expect(command).toBeInstanceOf(ScanCommand);
     expect(command.input).toEqual({
       TableName: 'loopr-test-metadata',
-      IndexName: 'gsi2',
-      KeyConditionExpression: 'gsi2sk = :gsi2sk',
+      FilterExpression: 'entityType = :entityType',
       ExpressionAttributeValues: {
-        ':gsi2sk': 'METADATA',
+        ':entityType': 'SESSION',
       },
     });
   });
