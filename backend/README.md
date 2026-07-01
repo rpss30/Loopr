@@ -177,3 +177,48 @@ http://127.0.0.1:8001
 ```
 
 The container uses in-memory storage, so local table data resets when the container is stopped.
+
+## Audio upload route shape
+
+The backend includes a placeholder route for future S3 audio uploads:
+
+```text
+POST /api/v1/audio/upload-url
+```
+
+Example request:
+
+```bash
+{
+  "projectId": "project-1",
+  "sessionId": "session-1",
+  "trackId": "track-1",
+  "contentType": "audio/mp4"
+}
+```
+
+Current response returns the future upload target shape, but does not generate a real presigned URL yet:
+
+```bash
+{
+  "error": {
+    "code": "presigned_upload_not_implemented",
+    "message": "Presigned S3 upload URLs will be added in a future branch."
+  },
+  "upload": {
+    "s3Bucket": "loopr-audio-local",
+    "s3Key": "projects/project-1/sessions/session-1/tracks/track-1.m4a",
+    "contentType": "audio/mp4"
+  }
+}
+```
+
+The intended future flow is:
+
+- Mobile requests an upload URL from the backend.
+- Backend validates project/session/track metadata.
+- Backend generates a presigned S3 upload URL.
+- Mobile uploads the recorded audio file directly to S3.
+- Backend stores track metadata and the S3 object reference in DynamoDB.
+
+This route intentionally returns 501 until real S3 presigned URL generation is implemented.
