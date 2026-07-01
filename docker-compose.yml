@@ -2,6 +2,7 @@ services:
   dynamodb-local:
     image: amazon/dynamodb-local:latest
     container_name: loopr-dynamodb-local
-    command: '-jar DynamoDBLocal.jar -sharedDb -inMemory'
+    command: '-jar DynamoDBLocal.jar -sharedDb -inMemory -port 8000'
     ports:
-      - '8000:8000'
+      - '127.0.0.1:8001:8000'
+      

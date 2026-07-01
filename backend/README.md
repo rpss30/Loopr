@@ -99,3 +99,31 @@ Current limitations:
 - No deployed environment yet.
 
 These limitations are intentional for this branch. The goal is to establish a clean backend structure before adding cloud persistence.
+
+## DynamoDB Local setup
+
+Start DynamoDB Local from the repo root:
+
+```bash
+docker compose up -d dynamodb-local
+```
+
+Create the local metadata table:
+
+```bash
+cp .env.dynamodb-local.example .env.dynamodb-local
+npm run dynamodb:setup:local
+```
+
+Run the backend against DynamoDB Local:
+
+```bash
+cp .env.dynamodb-local.example .env
+npm run dev
+```
+
+When finished, stop DynamoDB Local from the repo root:
+
+```bash
+docker compose down
+```
