@@ -127,3 +127,53 @@ When finished, stop DynamoDB Local from the repo root:
 ```bash
 docker compose down
 ```
+
+## DynamoDB Local verification
+
+Loopr can run against DynamoDB Local for backend repository verification.
+
+From the repo root, start DynamoDB Local:
+
+```bash
+docker compose up -d dynamodb-local
+```
+
+From `backend`, create the local metadata table:
+
+```bash
+cp .env.dynamodb-local.example .env.dynamodb-local
+npm run dynamodb:setup:local
+```
+
+Verify the DynamoDB-backed repositories end-to-end:
+
+```bash
+npm run dynamodb:verify:local
+```
+
+Expected output includes:
+
+```bash
+Verified DynamoDB Local repository flow.
+```
+
+To run the backend against DynamoDB Local:
+
+```bash
+cp .env.dynamodb-local.example .env
+npm run dev
+```
+
+When finished, stop DynamoDB Local from the repo root:
+
+```bash
+docker compose down
+```
+
+DynamoDB Local is currently mapped to:
+
+```bash
+http://127.0.0.1:8001
+```
+
+The container uses in-memory storage, so local table data resets when the container is stopped.
