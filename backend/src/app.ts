@@ -4,9 +4,10 @@ import helmet from 'helmet';
 
 import { errorHandler } from './middleware/error-handler';
 import { notFoundHandler } from './middleware/not-found';
+import { audioRouter } from './routes/audio.routes';
 import { projectsRouter } from './routes/projects.routes';
 import { sessionsRouter } from './routes/sessions.routes';
-import { audioRouter } from './routes/audio.routes';
+import { tracksRouter } from './routes/tracks.routes';
 
 export const app = express();
 
@@ -24,6 +25,7 @@ app.get('/health', (_request, response) => {
 app.use('/api/v1/projects', projectsRouter);
 app.use('/api/v1/sessions', sessionsRouter);
 app.use('/api/v1/audio', audioRouter);
+app.use('/api/v1/tracks', tracksRouter);
 
 app.use(notFoundHandler);
 app.use(errorHandler);
