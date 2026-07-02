@@ -1,14 +1,31 @@
 # Loopr S3 Audio Design
 
-This document describes the planned S3 object storage design for Loopr audio files.
+This document describes the S3 object storage design for Loopr audio files.
 
-This branch adds backend design helpers, route shape, validation, and documentation. It does not upload mobile audio yet and does not create an S3 bucket yet.
+Loopr stores recorded audio bytes in S3 and stores project, session, and track metadata separately in the backend metadata layer.
+
+The app should remain focused on a simple mobile-first MVP:
+
+```text
+create project → record tracks → play tracks → layer simple ideas → save/sync sessions
+```
+
+Loopr should not be positioned as a professional low-latency live looper pedal.
 
 ## Goal
 
-Loopr should eventually store recorded audio files in S3 while storing metadata in DynamoDB.
+The goal of the S3 audio flow is to let the mobile app upload recorded audio files without sending large file bytes through the backend server.
 
-DynamoDB should store metadata such as:
+The backend should coordinate uploads by:
+
+- validating the upload request
+- building the expected S3 object key
+- generating a presigned S3 PUT URL
+- returning the bucket, key, content type, method, and expiry to the client
+
+S3 stores the audio file bytes.
+
+DynamoDB should later store metadata such as:
 
 - project ID
 - session ID
@@ -19,13 +36,12 @@ DynamoDB should store metadata such as:
 - mute state
 - S3 bucket
 - S3 object key
+- content type
 - created and updated timestamps
-
-S3 should store the actual audio file bytes.
 
 ## Object key shape
 
-Track audio objects should use this structure:
+Track audio objects use this structure:
 
 ```text
 projects/{projectId}/sessions/{sessionId}/tracks/{trackId}.m4a
@@ -33,27 +49,35 @@ projects/{projectId}/sessions/{sessionId}/tracks/{trackId}.m4a
 
 Example:
 
-```bash
+```text
 projects/project-1/sessions/session-1/tracks/track-1.m4a
 ```
 
 All tracks for one session share this prefix:
 
-```bash
+```text
 projects/project-1/sessions/session-1/tracks
 ```
 
-## Backend route shape
+Object key segments are trimmed and URL-encoded before being joined into the final key.
 
-Planned route:
+The default audio extension is currently:
 
-```bash
+```text
+m4a
+```
+
+## Backend route
+
+Current route:
+
+```text
 POST /api/v1/audio/upload-url
 ```
 
-Current request shape:
+Request shape:
 
-```bash
+```json
 {
   "projectId": "project-1",
   "sessionId": "session-1",
@@ -62,81 +86,116 @@ Current request shape:
 }
 ```
 
-Supported content types currently accepted by validation:
+Supported content types:
 
-```bash
+```text
 audio/mp4
 audio/m4a
 audio/x-m4a
 audio/wav
 ```
 
-Current response shape:
+Successful response shape:
 
-```bash
+```json
 {
-  "error": {
-    "code": "presigned_upload_not_implemented",
-    "message": "Presigned S3 upload URLs will be added in a future branch."
-  },
   "upload": {
+    "uploadUrl": "https://example-presigned-s3-url",
+    "method": "PUT",
     "s3Bucket": "loopr-audio-local",
     "s3Key": "projects/project-1/sessions/session-1/tracks/track-1.m4a",
-    "contentType": "audio/mp4"
+    "contentType": "audio/mp4",
+    "expiresInSeconds": 900
   }
 }
 ```
 
-The route intentionally returns `501` for now because real presigned S3 URLs are not implemented yet.
+The route returns `201` when the backend successfully generates the upload URL.
 
-## Future upload flow
+## Upload flow
 
-The planned production flow is:
+The intended MVP upload flow is:
 
-```bash
+```text
 mobile records local audio
-mobile asks backend for upload URL
-backend validates project/session/track ownership
-backend builds S3 object key
-backend generates presigned S3 PUT URL
-mobile uploads local audio file directly to S3
-backend stores track metadata and S3 reference in DynamoDB
-mobile can later stream/download audio from cloud-backed metadata
+mobile creates or selects project/session context
+mobile asks backend for a presigned upload URL
+backend validates the request body
+backend builds the S3 object key
+backend generates a presigned S3 PUT URL
+mobile uploads the recorded local file directly to S3
+mobile or backend saves track metadata with the S3 bucket/key reference
 ```
 
-## Backend environment variable
+The mobile app has not been connected to this backend flow yet.
 
-The backend now includes:
+## Backend environment variables
+
+The backend uses these S3-related variables:
 
 ```bash
+AWS_REGION=us-west-2
 S3_AUDIO_BUCKET_NAME=loopr-audio-local
+S3_PRESIGNED_UPLOAD_EXPIRES_SECONDS=900
 ```
 
-This is currently used only for route shape and tests. A later branch should connect it to real S3 presigned URL generation.
+`AWS_REGION` configures the S3 client.
 
-## Current MVP assumption
+`S3_AUDIO_BUCKET_NAME` is the target bucket for audio uploads.
 
-The mobile app currently records local audio files through Expo. The first cloud upload path should assume short recorded clips and use `.m4a` as the default extension.
+`S3_PRESIGNED_UPLOAD_EXPIRES_SECONDS` controls how long each upload URL remains valid. The backend currently caps this value at `3600` seconds.
 
-Loopr should still be positioned as a mobile loop-building workspace for capturing and layering ideas, not a professional low-latency live looper pedal.
+## Terraform status
 
-## Future AWS work
+Terraform config exists for the audio bucket under:
 
-Future branches should add:
+```text
+infra/terraform
+```
 
-```bash
-S3 audio bucket Terraform
-S3 bucket security policy
-S3 CORS policy for mobile uploads if needed
-AWS SDK S3 client factory
-presigned PUT URL generation
-track metadata model with S3 references
-mobile upload integration after local/cloud backend is stable
-```bash
+The Terraform audio bucket config includes:
+
+- S3 bucket resource
+- public access block
+- ownership controls
+- AES256 server-side encryption
+- versioning
+- optional CORS config
+- backend environment output containing `S3_AUDIO_BUCKET_NAME`
+
+Terraform has only been formatted and validated. No real AWS resources have been created yet.
+
+Do not run `terraform apply` unless that is an explicit project decision.
 
 ## Current limitations
-- No S3 bucket exists yet.
-- No presigned URLs are generated yet.
-- No mobile upload is implemented yet.
-- No auth/user ownership is implemented yet.
-- Audio remains local-only in the mobile app for now.
+
+- The configured S3 bucket may not exist yet.
+- Mobile upload integration is not implemented yet.
+- Track metadata is not implemented yet.
+- The backend does not yet verify project/session/track ownership before signing uploads.
+- There is no authentication or user ownership model yet.
+- There are no download/stream URLs yet.
+- Uploaded objects are not cleaned up yet.
+
+## Next recommended backend step
+
+Add track metadata so uploaded audio has a real backend record to attach to.
+
+A simple first pass should add an in-memory track metadata API with fields like:
+
+```text
+id
+projectId
+sessionId
+name
+durationMs
+volume
+isMuted
+s3Bucket
+s3Key
+contentType
+createdAt
+updatedAt
+```
+
+After that, add the DynamoDB track repository and connect mobile upload to the backend.
