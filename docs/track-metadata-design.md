@@ -4,7 +4,7 @@ This document describes the first backend track metadata API for Loopr.
 
 Loopr audio files are stored separately from metadata. S3 stores the recorded audio bytes, while the backend metadata layer stores information needed to list, identify, and play tracks later.
 
-This branch intentionally keeps track metadata simple and in-memory first. DynamoDB-backed track metadata can come in a follow-up branch.
+Track metadata started as an in-memory API and now also has a DynamoDB-backed repository. The public API shape stays the same while storage is selected by `PERSISTENCE_DRIVER`.
 
 ## MVP goal
 
@@ -101,19 +101,42 @@ The route also checks that:
 
 ## Current storage
 
-Track metadata currently uses an in-memory repository.
+Track metadata supports two repository implementations:
 
-This means:
+```text
+PERSISTENCE_DRIVER=memory
+PERSISTENCE_DRIVER=dynamodb
+```
 
-- data is useful for API shape and local tests
-- data resets when the backend process restarts
-- it is not ready for durable sync yet
+Memory mode is the default for local development and tests.
 
-This is intentional for the first track metadata checkpoint.
+DynamoDB mode uses the shared metadata table and stores track items under the project/session hierarchy.
+
+Track item key shape:
+
+```text
+PK: PROJECT#{projectId}
+SK: SESSION#{sessionId}#TRACK#{trackId}
+```
+
+Track lookup index shape:
+
+```text
+GSI2PK: TRACK#{trackId}
+GSI2SK: METADATA
+```
+
+Tracks for a session can be queried with:
+
+```text
+PK: PROJECT#{projectId}
+SK begins_with SESSION#{sessionId}#TRACK#
+```
+
+This supports durable track metadata while keeping audio bytes in S3.
 
 ## Current limitations
 
-- No DynamoDB track repository yet.
 - Track metadata is not connected to the presigned upload route yet.
 - The backend does not confirm that the S3 object was actually uploaded.
 - Project/session track counts are not updated yet.
@@ -122,13 +145,14 @@ This is intentional for the first track metadata checkpoint.
 
 ## Recommended next backend step
 
-Add DynamoDB key design and repository support for tracks.
+Connect track metadata more directly to the upload flow.
 
-The likely DynamoDB item shape should keep tracks under project/session hierarchy, for example:
+A practical next step is to add a route or service flow that:
 
 ```text
-PK: PROJECT#{projectId}
-SK: SESSION#{sessionId}#TRACK#{trackId}
+request upload URL
+upload audio to S3
+save track metadata with s3Bucket and s3Key
 ```
 
-A follow-up can also add query helpers for listing tracks by session.
+After that, connect the mobile app to the local backend.
