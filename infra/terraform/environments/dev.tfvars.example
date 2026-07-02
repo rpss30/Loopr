@@ -1,6 +1,12 @@
-project_name                    = "loopr"
-environment                     = "dev"
-aws_region                      = "us-west-2"
-metadata_table_name             = "loopr-dev-metadata"
-enable_point_in_time_recovery   = true
-enable_deletion_protection      = false
+project_name = "loopr"
+environment  = "dev"
+aws_region   = "us-west-2"
+
+metadata_table_name            = null
+enable_point_in_time_recovery  = true
+enable_deletion_protection     = false
+
+audio_bucket_name              = null
+enable_audio_bucket_versioning = true
+audio_bucket_force_destroy     = false
+audio_cors_allowed_origins     = []
