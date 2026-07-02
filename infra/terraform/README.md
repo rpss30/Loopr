@@ -65,3 +65,47 @@ The backend currently defaults to in-memory persistence locally. DynamoDB mode s
 - No SQS/Lambda infrastructure yet.
 - No backend deployment infrastructure yet.
 - No CI/CD pipeline yet.
+
+## Audio bucket
+
+Terraform also defines the future S3 bucket for Loopr audio files.
+
+The bucket is intended to store recorded track audio using this object key shape:
+
+```text
+projects/{projectId}/sessions/{sessionId}/tracks/{trackId}.m4a
+```
+
+The default bucket name is:
+
+```bash
+loopr-dev-audio
+```
+
+S3 bucket names are globally unique, so real AWS deployments may need to override it in a local tfvars file:
+
+```bash
+audio_bucket_name = "your-unique-loopr-dev-audio-bucket"
+```
+
+The audio bucket uses conservative defaults:
+
+```bash
+public access blocked
+bucket owner enforced object ownership
+AES256 server-side encryption
+versioning enabled by default
+CORS disabled by default
+force destroy disabled by default
+```
+
+The `backend_env` Terraform output includes:
+
+```bash
+PERSISTENCE_DRIVER=dynamodb
+AWS_REGION
+DYNAMODB_METADATA_TABLE_NAME
+S3_AUDIO_BUCKET_NAME
+```
+
+This branch only validates Terraform configuration. Do not run `terraform apply` until we are ready to create real AWS resources.
