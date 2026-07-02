@@ -71,6 +71,10 @@ POST /api/v1/sessions
 GET  /api/v1/sessions/:sessionId
 
 POST /api/v1/audio/upload-url
+
+GET  /api/v1/tracks
+POST /api/v1/tracks
+GET  /api/v1/tracks/:trackId
 ```
 
 ## Environment variables
@@ -167,12 +171,72 @@ http://127.0.0.1:8001
 
 The container uses in-memory storage, so local table data resets when the container is stopped.
 
+## Track metadata routes
+
+The backend includes a first-pass in-memory track metadata API.
+
+```text
+GET  /api/v1/tracks
+POST /api/v1/tracks
+GET  /api/v1/tracks/:trackId
+```
+
+Example create request:
+
+```json
+{
+  "projectId": "project-1",
+  "sessionId": "session-1",
+  "name": "Guitar Layer",
+  "durationMs": 12000,
+  "volume": 0.75,
+  "isMuted": false,
+  "s3Bucket": "loopr-audio-local",
+  "s3Key": "projects/project-1/sessions/session-1/tracks/track-1.m4a",
+  "contentType": "audio/mp4"
+}
+```
+
+Example successful response:
+
+```json
+{
+  "track": {
+    "id": "track-id",
+    "projectId": "project-1",
+    "sessionId": "session-1",
+    "name": "Guitar Layer",
+    "durationMs": 12000,
+    "volume": 0.75,
+    "isMuted": false,
+    "s3Bucket": "loopr-audio-local",
+    "s3Key": "projects/project-1/sessions/session-1/tracks/track-1.m4a",
+    "contentType": "audio/mp4",
+    "createdAt": "2026-07-01T00:00:00.000Z",
+    "updatedAt": "2026-07-01T00:00:00.000Z"
+  }
+}
+```
+
+The route validates that the project exists, the session exists, and the session belongs to the provided project.
+
+Current defaults:
+
+```text
+volume: 1
+isMuted: false
+```
+
 ## Audio upload URL route
 
 The backend can generate presigned S3 PUT upload URLs for recorded audio files.
 
 ```text
 POST /api/v1/audio/upload-url
+
+GET  /api/v1/tracks
+POST /api/v1/tracks
+GET  /api/v1/tracks/:trackId
 ```
 
 Example request:
@@ -238,7 +302,8 @@ projects/project-1/sessions/session-1/tracks/track-1.m4a
 - The configured S3 bucket must already exist for real uploads to succeed.
 - Terraform has been validated, but no real AWS resources have been created yet.
 - Mobile does not upload recorded audio to S3 yet.
-- Track metadata is not stored yet.
+- Track metadata is currently stored in memory only.
+- DynamoDB-backed track metadata is not implemented yet.
 - There is no authentication or user ownership model yet.
 - The app is not deployed yet.
 
