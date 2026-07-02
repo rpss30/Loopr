@@ -156,3 +156,26 @@ save track metadata with s3Bucket and s3Key
 ```
 
 After that, connect the mobile app to the local backend.
+
+## Local DynamoDB verification
+
+The backend DynamoDB Local verification script now covers:
+
+```text
+project create/get/list
+session create/get/list
+track create/get/list
+tracks-by-session query
+```
+
+Run it from `backend` after starting DynamoDB Local and creating the local table:
+
+```bash
+npm run dynamodb:verify:local
+```
+
+Expected output includes:
+
+```text
+Verified DynamoDB Local repository flow.
+```

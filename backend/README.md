@@ -151,7 +151,7 @@ cp .env.dynamodb-local.example .env.dynamodb-local
 npm run dynamodb:setup:local
 ```
 
-Verify the DynamoDB-backed repositories end-to-end:
+Verify the DynamoDB-backed project, session, and track repositories end-to-end:
 
 ```bash
 npm run dynamodb:verify:local
@@ -161,6 +161,18 @@ Expected output includes:
 
 ```text
 Verified DynamoDB Local repository flow.
+```
+
+The verification output should include:
+
+```text
+project
+fetchedProject
+session
+fetchedSession
+track
+fetchedTrack
+sessionTrackCount
 ```
 
 DynamoDB Local is currently mapped to:
@@ -233,10 +245,6 @@ The backend can generate presigned S3 PUT upload URLs for recorded audio files.
 
 ```text
 POST /api/v1/audio/upload-url
-
-GET  /api/v1/tracks
-POST /api/v1/tracks
-GET  /api/v1/tracks/:trackId
 ```
 
 Example request:
