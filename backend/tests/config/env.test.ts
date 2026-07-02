@@ -14,6 +14,7 @@ describe('backend env config', () => {
       DYNAMODB_METADATA_TABLE_NAME: 'loopr-metadata',
       DYNAMODB_ENDPOINT: undefined,
       S3_AUDIO_BUCKET_NAME: 'loopr-audio-local',
+      S3_PRESIGNED_UPLOAD_EXPIRES_SECONDS: 900,
     });
   });
 
@@ -25,13 +26,14 @@ describe('backend env config', () => {
     expect(env.PORT).toBe(4000);
   });
 
-  it('allows DynamoDB persistence config', () => {
+  it('allows DynamoDB and S3 persistence config', () => {
     const env = loadEnv({
       PERSISTENCE_DRIVER: 'dynamodb',
       AWS_REGION: 'ca-central-1',
       DYNAMODB_METADATA_TABLE_NAME: 'loopr-dev-metadata',
       DYNAMODB_ENDPOINT: 'http://localhost:8000',
       S3_AUDIO_BUCKET_NAME: 'loopr-dev-audio',
+      S3_PRESIGNED_UPLOAD_EXPIRES_SECONDS: '600',
     });
 
     expect(env.PERSISTENCE_DRIVER).toBe('dynamodb');
@@ -39,6 +41,7 @@ describe('backend env config', () => {
     expect(env.DYNAMODB_METADATA_TABLE_NAME).toBe('loopr-dev-metadata');
     expect(env.DYNAMODB_ENDPOINT).toBe('http://localhost:8000');
     expect(env.S3_AUDIO_BUCKET_NAME).toBe('loopr-dev-audio');
+    expect(env.S3_PRESIGNED_UPLOAD_EXPIRES_SECONDS).toBe(600);
   });
 
   it('treats an empty DynamoDB endpoint as unset', () => {
@@ -61,6 +64,14 @@ describe('backend env config', () => {
     expect(() =>
       loadEnv({
         DYNAMODB_ENDPOINT: 'localhost:8000',
+      })
+    ).toThrow();
+  });
+
+  it('rejects presigned upload expirations over one hour', () => {
+    expect(() =>
+      loadEnv({
+        S3_PRESIGNED_UPLOAD_EXPIRES_SECONDS: '3601',
       })
     ).toThrow();
   });

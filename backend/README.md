@@ -1,8 +1,8 @@
 # Loopr Backend
 
-This is the backend API for Loopr, a mobile loop-building workspace for musicians.
+This is the backend API for Loopr, a mobile-first loop-building workspace for musicians.
 
-The backend is currently a TypeScript Express API skeleton. It provides health checks, structured routes, request validation, tests, and temporary in-memory services. Persistence will be added later with AWS services such as DynamoDB and S3.
+The backend is a TypeScript Express API for projects, sessions, and audio upload coordination. The mobile app still works local-first, but the backend now has the first cloud-storage building block: generating presigned S3 upload URLs for recorded audio files.
 
 ## Current stack
 
@@ -12,6 +12,7 @@ The backend is currently a TypeScript Express API skeleton. It provides health c
 - Zod for request validation
 - Vitest for tests
 - Supertest for API route tests
+- AWS SDK v3 for DynamoDB and S3 integration
 - Prettier for formatting
 
 ## Local development
@@ -28,7 +29,7 @@ Start the development server:
 npm run dev
 ```
 
-The API runs on port 3001 by default.
+The API runs on port `3001` by default.
 
 Health check:
 
@@ -38,7 +39,7 @@ curl http://localhost:3001/health
 
 Expected response:
 
-```bash
+```json
 {
   "status": "ok",
   "service": "loopr-api"
@@ -56,16 +57,20 @@ npm run format
 npm run format:check
 ```
 
-Current API surface:
+## Current API surface
 
-```bash
+```text
 GET  /health
+
 GET  /api/v1/projects
 POST /api/v1/projects
 GET  /api/v1/projects/:projectId
+
 GET  /api/v1/sessions
 POST /api/v1/sessions
 GET  /api/v1/sessions/:sessionId
+
+POST /api/v1/audio/upload-url
 ```
 
 ## Environment variables
@@ -84,21 +89,18 @@ PORT=3001
 PERSISTENCE_DRIVER=memory
 AWS_REGION=us-west-2
 DYNAMODB_METADATA_TABLE_NAME=loopr-metadata
+DYNAMODB_ENDPOINT=
+S3_AUDIO_BUCKET_NAME=loopr-audio-local
+S3_PRESIGNED_UPLOAD_EXPIRES_SECONDS=900
 ```
 
 `PERSISTENCE_DRIVER=memory` is the default local mode.
 
-`PERSISTENCE_DRIVER=dynamodb` selects the DynamoDB repository implementations, but it requires AWS credentials and a DynamoDB table matching the planned metadata design. Terraform and deployed AWS resources are intentionally not included yet.
+`PERSISTENCE_DRIVER=dynamodb` selects the DynamoDB repository implementations. For local verification, use DynamoDB Local. For real AWS usage, it requires AWS credentials and a DynamoDB table matching the metadata design.
 
-Current limitations:
+`S3_AUDIO_BUCKET_NAME` controls which bucket presigned audio upload URLs target.
 
-- Data is stored in memory only.
-- Data resets whenever the server restarts.
-- No authentication yet.
-- No DynamoDB/S3 integration yet.
-- No deployed environment yet.
-
-These limitations are intentional for this branch. The goal is to establish a clean backend structure before adding cloud persistence.
+`S3_PRESIGNED_UPLOAD_EXPIRES_SECONDS` controls how long generated upload URLs remain valid. The current maximum is `3600` seconds.
 
 ## DynamoDB Local setup
 
@@ -108,7 +110,7 @@ Start DynamoDB Local from the repo root:
 docker compose up -d dynamodb-local
 ```
 
-Create the local metadata table:
+Create the local metadata table from `backend`:
 
 ```bash
 cp .env.dynamodb-local.example .env.dynamodb-local
@@ -153,34 +155,21 @@ npm run dynamodb:verify:local
 
 Expected output includes:
 
-```bash
+```text
 Verified DynamoDB Local repository flow.
-```
-
-To run the backend against DynamoDB Local:
-
-```bash
-cp .env.dynamodb-local.example .env
-npm run dev
-```
-
-When finished, stop DynamoDB Local from the repo root:
-
-```bash
-docker compose down
 ```
 
 DynamoDB Local is currently mapped to:
 
-```bash
+```text
 http://127.0.0.1:8001
 ```
 
 The container uses in-memory storage, so local table data resets when the container is stopped.
 
-## Audio upload route shape
+## Audio upload URL route
 
-The backend includes a placeholder route for future S3 audio uploads:
+The backend can generate presigned S3 PUT upload URLs for recorded audio files.
 
 ```text
 POST /api/v1/audio/upload-url
@@ -188,7 +177,7 @@ POST /api/v1/audio/upload-url
 
 Example request:
 
-```bash
+```json
 {
   "projectId": "project-1",
   "sessionId": "session-1",
@@ -197,28 +186,60 @@ Example request:
 }
 ```
 
-Current response returns the future upload target shape, but does not generate a real presigned URL yet:
+Supported content types:
 
-```bash
+```text
+audio/mp4
+audio/m4a
+audio/x-m4a
+audio/wav
+```
+
+Example successful response:
+
+```json
 {
-  "error": {
-    "code": "presigned_upload_not_implemented",
-    "message": "Presigned S3 upload URLs will be added in a future branch."
-  },
   "upload": {
+    "uploadUrl": "https://example-presigned-s3-url",
+    "method": "PUT",
     "s3Bucket": "loopr-audio-local",
     "s3Key": "projects/project-1/sessions/session-1/tracks/track-1.m4a",
-    "contentType": "audio/mp4"
+    "contentType": "audio/mp4",
+    "expiresInSeconds": 900
   }
 }
 ```
 
-The intended future flow is:
+The mobile upload flow will be:
 
-- Mobile requests an upload URL from the backend.
-- Backend validates project/session/track metadata.
-- Backend generates a presigned S3 upload URL.
-- Mobile uploads the recorded audio file directly to S3.
-- Backend stores track metadata and the S3 object reference in DynamoDB.
+```text
+mobile records local audio
+mobile asks backend for an upload URL
+backend builds the S3 object key
+backend returns a presigned S3 PUT URL
+mobile uploads the local audio file directly to S3
+backend stores track metadata and the S3 object reference
+```
 
-This route intentionally returns 501 until real S3 presigned URL generation is implemented.
+Current object key shape:
+
+```text
+projects/{projectId}/sessions/{sessionId}/tracks/{trackId}.m4a
+```
+
+Example:
+
+```text
+projects/project-1/sessions/session-1/tracks/track-1.m4a
+```
+
+## Current limitations
+
+- The configured S3 bucket must already exist for real uploads to succeed.
+- Terraform has been validated, but no real AWS resources have been created yet.
+- Mobile does not upload recorded audio to S3 yet.
+- Track metadata is not stored yet.
+- There is no authentication or user ownership model yet.
+- The app is not deployed yet.
+
+These limitations are intentional. The current goal is to build toward a simple demo flow: create project, record tracks, play tracks, save/sync sessions, upload audio, and store track metadata.

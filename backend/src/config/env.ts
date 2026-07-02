@@ -17,6 +17,7 @@ const envSchema = z.object({
   DYNAMODB_METADATA_TABLE_NAME: z.string().min(1).default('loopr-metadata'),
   DYNAMODB_ENDPOINT: optionalUrlSchema,
   S3_AUDIO_BUCKET_NAME: z.string().min(1).default('loopr-audio-local'),
+  S3_PRESIGNED_UPLOAD_EXPIRES_SECONDS: z.coerce.number().int().positive().max(3600).default(900),
 });
 
 export type BackendEnv = z.infer<typeof envSchema>;
