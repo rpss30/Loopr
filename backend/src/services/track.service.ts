@@ -1,7 +1,7 @@
 import { randomUUID } from 'crypto';
 
 import { CreateTrackInput, LoopTrackMetadata } from '../models/track';
-import { trackRepository } from '../repositories/in-memory-track.repository';
+import { repositories } from '../repositories/repository-factory';
 import { TrackRepository } from '../repositories/track.repository';
 
 export class TrackService {
@@ -41,4 +41,4 @@ export class TrackService {
   }
 }
 
-export const trackService = new TrackService(trackRepository);
+export const trackService = new TrackService(repositories.trackRepository);

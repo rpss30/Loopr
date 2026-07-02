@@ -173,7 +173,7 @@ The container uses in-memory storage, so local table data resets when the contai
 
 ## Track metadata routes
 
-The backend includes a first-pass in-memory track metadata API.
+The backend includes a track metadata API. It uses in-memory storage by default and can use the DynamoDB track repository when `PERSISTENCE_DRIVER=dynamodb`.
 
 ```text
 GET  /api/v1/tracks
@@ -302,8 +302,8 @@ projects/project-1/sessions/session-1/tracks/track-1.m4a
 - The configured S3 bucket must already exist for real uploads to succeed.
 - Terraform has been validated, but no real AWS resources have been created yet.
 - Mobile does not upload recorded audio to S3 yet.
-- Track metadata is currently stored in memory only.
-- DynamoDB-backed track metadata is not implemented yet.
+- Track metadata is stored in memory by default for local development.
+- DynamoDB-backed track metadata exists, but mobile is not connected to it yet.
 - There is no authentication or user ownership model yet.
 - The app is not deployed yet.
 
