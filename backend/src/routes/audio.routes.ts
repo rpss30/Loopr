@@ -1,37 +1,40 @@
-import { Router } from 'express';
+import { NextFunction, Request, Response, Router } from 'express';
 
-import { env } from '../config/env';
 import { validateBody } from '../middleware/validate-body';
 import { createAudioUploadUrlSchema } from '../schemas/audio.schema';
-import { buildTrackAudioObjectKey } from '../storage/audio-object-keys';
+import {
+  audioUploadUrlService,
+  CreateAudioUploadUrlInput,
+  CreateAudioUploadUrlResult,
+} from '../storage/audio-upload-url.service';
 
-type CreateAudioUploadUrlInput = {
-  projectId: string;
-  sessionId: string;
-  trackId: string;
-  contentType: string;
+type AudioUploadUrlServiceLike = {
+  createUploadUrl: (input: CreateAudioUploadUrlInput) => Promise<CreateAudioUploadUrlResult>;
 };
 
-export const audioRouter = Router();
+export function createAudioRouter(
+  uploadUrlService: AudioUploadUrlServiceLike = audioUploadUrlService
+) {
+  const router = Router();
 
-audioRouter.post('/upload-url', validateBody(createAudioUploadUrlSchema), (request, response) => {
-  const input = request.body as CreateAudioUploadUrlInput;
+  router.post(
+    '/upload-url',
+    validateBody(createAudioUploadUrlSchema),
+    async (request: Request, response: Response, next: NextFunction) => {
+      try {
+        const input = request.body as CreateAudioUploadUrlInput;
+        const upload = await uploadUrlService.createUploadUrl(input);
 
-  const s3Key = buildTrackAudioObjectKey({
-    projectId: input.projectId,
-    sessionId: input.sessionId,
-    trackId: input.trackId,
-  });
+        response.status(201).json({
+          upload,
+        });
+      } catch (error) {
+        next(error);
+      }
+    }
+  );
 
-  response.status(501).json({
-    error: {
-      code: 'presigned_upload_not_implemented',
-      message: 'Presigned S3 upload URLs will be added in a future branch.',
-    },
-    upload: {
-      s3Bucket: env.S3_AUDIO_BUCKET_NAME,
-      s3Key,
-      contentType: input.contentType,
-    },
-  });
-});
+  return router;
+}
+
+export const audioRouter = createAudioRouter();
