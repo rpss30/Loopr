@@ -1,50 +1,90 @@
-# Welcome to your Expo app 👋
+# Loopr Mobile
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Loopr Mobile is the Expo React Native app for Loopr, a mobile-first multitrack loop-building app for musicians to capture short ideas, layer recorded tracks, control playback, and save loop sessions.
 
-## Get started
+The mobile app is currently local-first. It supports project creation, local recording, track playback, simple track controls, and AsyncStorage persistence.
 
-1. Install dependencies
+## Current MVP scope
 
-   ```bash
-   npm install
-   ```
+The mobile MVP is focused on:
 
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
+```text
+create project → record tracks → play tracks → layer simple ideas → save/sync sessions
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+Loopr is not intended to be a professional low-latency live looper pedal.
 
-## Learn more
+## Local development
 
-To learn more about developing your project with Expo, look at the following resources:
+Install dependencies:
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+```bash
+npm install
+```
 
-## Join the community
+Start Expo:
 
-Join our community of developers creating universal apps.
+```bash
+npx expo start
+```
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+Useful commands:
+
+```bash
+npm run format
+npm run format:check
+npm run lint
+npm test
+npx tsc --noEmit
+```
+
+## Backend API configuration
+
+The mobile app now includes a small backend API client layer.
+
+Default API base URL:
+
+```text
+http://localhost:3001
+```
+
+For physical iPhone testing through Expo Go, `localhost` points to the phone, not your Mac. Use your Mac's local network IP address instead.
+
+Example:
+
+```bash
+EXPO_PUBLIC_LOOPR_API_BASE_URL=http://192.168.1.10:3001 npx expo start
+```
+
+Replace `192.168.1.10` with your Mac's local IP address.
+
+The current client layer supports:
+
+```text
+GET  /health
+GET  /api/v1/projects
+POST /api/v1/projects
+```
+
+The API client files are:
+
+```text
+config/api.ts
+services/api-client.ts
+services/projects-api.ts
+```
+
+## Current limitations
+
+- Backend API client exists, but the UI is not connected to it yet.
+- Projects and tracks are still stored locally with AsyncStorage.
+- Recorded audio files are still stored locally on the device.
+- Mobile does not upload audio to S3 yet.
+- Mobile does not save backend track metadata yet.
+- No auth/user ownership yet.
+
+## Recommended next step
+
+Connect the project list/create project flow to the local backend behind a small, reversible integration.
+
+The app should keep the local-first demo working while backend sync is added incrementally.
