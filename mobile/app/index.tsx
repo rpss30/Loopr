@@ -6,8 +6,14 @@ import { deleteLocalAudioFile } from '../features/tracks/audio-file-cleanup';
 import { useTracks } from '../features/tracks/track-store';
 
 export default function ProjectListScreen() {
-  const { projects, isLoadingProjects, projectStorageError, renameProject, deleteProject } =
-    useProjects();
+  const {
+    projects,
+    isLoadingProjects,
+    projectStorageError,
+    projectSyncError,
+    renameProject,
+    deleteProject,
+  } = useProjects();
   const {
     deleteTracksByProjectId,
     getTrackCountForProject,
@@ -114,6 +120,12 @@ export default function ProjectListScreen() {
         {projectStorageError ? (
           <View style={styles.errorCard}>
             <Text style={styles.errorText}>{projectStorageError}</Text>
+          </View>
+        ) : null}
+
+        {projectSyncError ? (
+          <View style={styles.noticeCard}>
+            <Text style={styles.noticeText}>{projectSyncError}</Text>
           </View>
         ) : null}
 
