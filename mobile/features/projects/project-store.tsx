@@ -8,6 +8,8 @@ import {
   useState,
 } from 'react';
 
+import { projectsApi } from '@/services/projects-api';
+
 import { LoopProject } from '../../types/project';
 import { loadProjectsFromStorage, saveProjectsToStorage } from './project-storage';
 
@@ -20,7 +22,8 @@ type ProjectContextValue = {
   projects: LoopProject[];
   isLoadingProjects: boolean;
   projectStorageError: string | null;
-  createProject: (input: CreateProjectInput) => LoopProject;
+  projectSyncError: string | null;
+  createProject: (input: CreateProjectInput) => Promise<LoopProject>;
   renameProject: (projectId: string, name: string) => void;
   deleteProject: (projectId: string) => void;
   getProjectById: (projectId: string) => LoopProject | undefined;
@@ -51,6 +54,7 @@ export function ProjectProvider({ children }: PropsWithChildren) {
   const [projects, setProjects] = useState<LoopProject[]>([]);
   const [isLoadingProjects, setIsLoadingProjects] = useState(true);
   const [projectStorageError, setProjectStorageError] = useState<string | null>(null);
+  const [projectSyncError, setProjectSyncError] = useState<string | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -58,12 +62,30 @@ export function ProjectProvider({ children }: PropsWithChildren) {
     async function loadProjects() {
       try {
         const storedProjects = await loadProjectsFromStorage();
+        const localProjects = storedProjects.length > 0 ? storedProjects : starterProjects;
 
         if (!isMounted) {
           return;
         }
 
-        setProjects(storedProjects.length > 0 ? storedProjects : starterProjects);
+        setProjects(localProjects);
+
+        try {
+          const response = await projectsApi.listProjects();
+
+          if (!isMounted) {
+            return;
+          }
+
+          if (response.projects.length > 0) {
+            setProjects(response.projects);
+            setProjectSyncError(null);
+          }
+        } catch {
+          if (isMounted) {
+            setProjectSyncError('Backend sync unavailable. Showing local projects.');
+          }
+        }
       } catch {
         if (!isMounted) {
           return;
@@ -95,10 +117,10 @@ export function ProjectProvider({ children }: PropsWithChildren) {
     });
   }, [isLoadingProjects, projects]);
 
-  const createProject = useCallback((input: CreateProjectInput) => {
+  const createLocalProject = useCallback((input: CreateProjectInput) => {
     const now = new Date().toISOString();
 
-    const project: LoopProject = {
+    return {
       id: `local-${Date.now()}`,
       name: input.name,
       bpm: input.bpm,
@@ -106,11 +128,29 @@ export function ProjectProvider({ children }: PropsWithChildren) {
       createdAt: now,
       updatedAt: now,
     };
-
-    setProjects((currentProjects) => [project, ...currentProjects]);
-
-    return project;
   }, []);
+
+  const createProject = useCallback(
+    async (input: CreateProjectInput) => {
+      try {
+        const response = await projectsApi.createProject(input);
+        const project = response.project;
+
+        setProjects((currentProjects) => [project, ...currentProjects]);
+        setProjectSyncError(null);
+
+        return project;
+      } catch {
+        const project = createLocalProject(input);
+
+        setProjects((currentProjects) => [project, ...currentProjects]);
+        setProjectSyncError('Backend sync unavailable. Created this project locally.');
+
+        return project;
+      }
+    },
+    [createLocalProject]
+  );
 
   const renameProject = useCallback((projectId: string, name: string) => {
     const trimmedName = name.trim();
@@ -152,6 +192,7 @@ export function ProjectProvider({ children }: PropsWithChildren) {
       projects,
       isLoadingProjects,
       projectStorageError,
+      projectSyncError,
       createProject,
       renameProject,
       deleteProject,
@@ -163,6 +204,7 @@ export function ProjectProvider({ children }: PropsWithChildren) {
       getProjectById,
       isLoadingProjects,
       projectStorageError,
+      projectSyncError,
       projects,
       renameProject,
     ]

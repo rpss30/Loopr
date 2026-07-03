@@ -8,8 +8,13 @@ export default function CreateProjectScreen() {
   const { createProject } = useProjects();
   const [name, setName] = useState('');
   const [bpm, setBpm] = useState('100');
+  const [isCreatingProject, setIsCreatingProject] = useState(false);
 
-  const handleCreateProject = () => {
+  const handleCreateProject = async () => {
+    if (isCreatingProject) {
+      return;
+    }
+
     const trimmedName = name.trim();
     const parsedBpm = Number(bpm);
 
@@ -23,12 +28,18 @@ export default function CreateProjectScreen() {
       return;
     }
 
-    const project = createProject({
-      name: trimmedName,
-      bpm: parsedBpm,
-    });
+    setIsCreatingProject(true);
 
-    router.replace(`/projects/${project.id}`);
+    try {
+      const project = await createProject({
+        name: trimmedName,
+        bpm: parsedBpm,
+      });
+
+      router.replace(`/projects/${project.id}`);
+    } finally {
+      setIsCreatingProject(false);
+    }
   };
 
   return (
@@ -51,6 +62,7 @@ export default function CreateProjectScreen() {
               value={name}
               onChangeText={setName}
               autoCapitalize="words"
+              editable={!isCreatingProject}
             />
           </View>
 
@@ -63,11 +75,18 @@ export default function CreateProjectScreen() {
               value={bpm}
               onChangeText={setBpm}
               keyboardType="number-pad"
+              editable={!isCreatingProject}
             />
           </View>
 
-          <Pressable style={styles.primaryButton} onPress={handleCreateProject}>
-            <Text style={styles.primaryButtonText}>Create workspace</Text>
+          <Pressable
+            style={[styles.primaryButton, isCreatingProject ? styles.primaryButtonDisabled : null]}
+            onPress={handleCreateProject}
+            disabled={isCreatingProject}
+          >
+            <Text style={styles.primaryButtonText}>
+              {isCreatingProject ? 'Creating workspace...' : 'Create workspace'}
+            </Text>
           </Pressable>
         </View>
       </View>
@@ -125,6 +144,9 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     paddingVertical: 15,
     alignItems: 'center',
+  },
+  primaryButtonDisabled: {
+    opacity: 0.7,
   },
   primaryButtonText: {
     color: '#082F49',
