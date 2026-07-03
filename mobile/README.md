@@ -67,6 +67,10 @@ POST /api/v1/projects
 GET  /api/v1/sessions
 POST /api/v1/sessions
 GET  /api/v1/sessions/:sessionId
+POST /api/v1/audio/upload-url
+GET  /api/v1/tracks
+POST /api/v1/tracks
+GET  /api/v1/tracks/:trackId
 ```
 
 The project list/create project flow now uses the backend client when available.
@@ -89,6 +93,8 @@ config/api.ts
 services/api-client.ts
 services/projects-api.ts
 services/sessions-api.ts
+services/audio-upload-api.ts
+services/tracks-api.ts
 ```
 
 ## Current limitations
@@ -102,6 +108,6 @@ services/sessions-api.ts
 
 ## Recommended next step
 
-Connect the workspace/session flow to the sessions API wrapper, then connect tracks to the backend incrementally.
+Connect the workspace/session flow to the sessions API wrapper, then wire recorded audio upload through the upload URL and tracks API wrappers.
 
 The app should keep the local-first demo working while backend sync is added in small, reversible steps.
