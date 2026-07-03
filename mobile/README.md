@@ -66,6 +66,19 @@ GET  /api/v1/projects
 POST /api/v1/projects
 ```
 
+The project list/create project flow now uses the backend client when available.
+
+Current behavior:
+
+```text
+load local projects immediately
+try to fetch backend projects
+show backend projects when available
+fall back to local/starter projects when backend is unavailable
+try to create projects through backend
+fall back to local project creation when backend create fails
+```
+
 The API client files are:
 
 ```text
@@ -76,8 +89,8 @@ services/projects-api.ts
 
 ## Current limitations
 
-- Backend API client exists, but the UI is not connected to it yet.
-- Projects and tracks are still stored locally with AsyncStorage.
+- Project list/create project is connected to the backend with local fallback.
+- Projects are still cached locally with AsyncStorage.
 - Recorded audio files are still stored locally on the device.
 - Mobile does not upload audio to S3 yet.
 - Mobile does not save backend track metadata yet.
@@ -85,6 +98,6 @@ services/projects-api.ts
 
 ## Recommended next step
 
-Connect the project list/create project flow to the local backend behind a small, reversible integration.
+Connect sessions and tracks to the backend incrementally.
 
-The app should keep the local-first demo working while backend sync is added incrementally.
+The app should keep the local-first demo working while backend sync is added in small, reversible steps.
