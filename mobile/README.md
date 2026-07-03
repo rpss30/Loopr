@@ -64,6 +64,9 @@ The current client layer supports:
 GET  /health
 GET  /api/v1/projects
 POST /api/v1/projects
+GET  /api/v1/sessions
+POST /api/v1/sessions
+GET  /api/v1/sessions/:sessionId
 ```
 
 The project list/create project flow now uses the backend client when available.
@@ -85,6 +88,7 @@ The API client files are:
 config/api.ts
 services/api-client.ts
 services/projects-api.ts
+services/sessions-api.ts
 ```
 
 ## Current limitations
@@ -98,6 +102,6 @@ services/projects-api.ts
 
 ## Recommended next step
 
-Connect sessions and tracks to the backend incrementally.
+Connect the workspace/session flow to the sessions API wrapper, then connect tracks to the backend incrementally.
 
 The app should keep the local-first demo working while backend sync is added in small, reversible steps.
