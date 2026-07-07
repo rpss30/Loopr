@@ -84,6 +84,8 @@ show backend projects when available
 fall back to local/starter projects when backend is unavailable
 try to create projects through backend
 fall back to local project creation when backend create fails
+when opening a workspace, try to ensure a simple backend session exists
+keep recording and playback local-first when backend session sync fails
 ```
 
 The API client files are:
@@ -108,6 +110,6 @@ services/tracks-api.ts
 
 ## Recommended next step
 
-Connect the workspace/session flow to the sessions API wrapper, then wire recorded audio upload through the upload URL and tracks API wrappers.
+Wire recorded audio upload through the upload URL and tracks API wrappers.
 
 The app should keep the local-first demo working while backend sync is added in small, reversible steps.

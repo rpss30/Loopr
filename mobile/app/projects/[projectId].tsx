@@ -7,6 +7,7 @@ import { Alert, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } fr
 import { useProjects } from '../../features/projects/project-store';
 import { deleteLocalAudioFile } from '../../features/tracks/audio-file-cleanup';
 import { useTracks } from '../../features/tracks/track-store';
+import { ensureBackendSessionForProject } from '../../services/project-session-sync';
 import { LoopTrack } from '../../types/track';
 
 async function stopAndUnloadSound(sound: Audio.Sound) {
@@ -46,6 +47,9 @@ export default function LoopWorkspaceScreen() {
 
   const [playingTrackId, setPlayingTrackId] = useState<string | null>(null);
   const [isSessionPlaying, setIsSessionPlaying] = useState(false);
+  const [backendSessionId, setBackendSessionId] = useState<string | null>(null);
+  const [isEnsuringBackendSession, setIsEnsuringBackendSession] = useState(false);
+  const [sessionSyncError, setSessionSyncError] = useState<string | null>(null);
 
   const project = getProjectById(params.projectId);
   const tracks = project ? getTracksByProjectId(project.id) : [];
@@ -53,6 +57,56 @@ export default function LoopWorkspaceScreen() {
   const isRecording = recording !== null;
   const playableSessionTracks = tracks.filter((track) => track.localUri && !track.muted);
   const canPlaySession = playableSessionTracks.length > 0;
+
+  useEffect(() => {
+    if (!project) {
+      setBackendSessionId(null);
+      setSessionSyncError(null);
+      setIsEnsuringBackendSession(false);
+      return;
+    }
+
+    const currentProject = project;
+    let isMounted = true;
+
+    async function ensureSession() {
+      setIsEnsuringBackendSession(true);
+
+      try {
+        const session = await ensureBackendSessionForProject({
+          projectId: currentProject.id,
+          projectName: currentProject.name,
+          bpm: currentProject.bpm,
+        });
+
+        if (!isMounted) {
+          return;
+        }
+
+        setBackendSessionId(session.id);
+        setSessionSyncError(null);
+      } catch {
+        if (!isMounted) {
+          return;
+        }
+
+        setBackendSessionId(null);
+        setSessionSyncError(
+          'Backend session sync unavailable. Recording remains local on this device.'
+        );
+      } finally {
+        if (isMounted) {
+          setIsEnsuringBackendSession(false);
+        }
+      }
+    }
+
+    void ensureSession();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [project]);
 
   useEffect(() => {
     return () => {
@@ -498,6 +552,26 @@ export default function LoopWorkspaceScreen() {
           </View>
         ) : null}
 
+        {isEnsuringBackendSession ? (
+          <View style={styles.noticeCard}>
+            <Text style={styles.noticeText}>Preparing backend session sync...</Text>
+          </View>
+        ) : null}
+
+        {backendSessionId ? (
+          <View style={styles.noticeCard}>
+            <Text style={styles.noticeText}>
+              Backend session ready for future cloud track sync.
+            </Text>
+          </View>
+        ) : null}
+
+        {sessionSyncError ? (
+          <View style={styles.noticeCard}>
+            <Text style={styles.noticeText}>{sessionSyncError}</Text>
+          </View>
+        ) : null}
+
         <View style={styles.transportCard}>
           <Text style={styles.sectionTitle}>Session controls</Text>
 
@@ -785,6 +859,18 @@ const styles = StyleSheet.create({
   },
   errorText: {
     color: '#FECACA',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  noticeCard: {
+    backgroundColor: '#172554',
+    borderRadius: 18,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#1D4ED8',
+  },
+  noticeText: {
+    color: '#BFDBFE',
     fontSize: 14,
     fontWeight: '700',
   },
