@@ -8,6 +8,7 @@ import { useProjects } from '../../features/projects/project-store';
 import { deleteLocalAudioFile } from '../../features/tracks/audio-file-cleanup';
 import { useTracks } from '../../features/tracks/track-store';
 import { ensureBackendSessionForProject } from '../../services/project-session-sync';
+import { prepareRecordedTrackCloudSync } from '../../services/recorded-track-cloud-sync';
 import { LoopTrack } from '../../types/track';
 
 async function stopAndUnloadSound(sound: Audio.Sound) {
@@ -50,6 +51,8 @@ export default function LoopWorkspaceScreen() {
   const [backendSessionId, setBackendSessionId] = useState<string | null>(null);
   const [isEnsuringBackendSession, setIsEnsuringBackendSession] = useState(false);
   const [sessionSyncError, setSessionSyncError] = useState<string | null>(null);
+  const [trackSyncNotice, setTrackSyncNotice] = useState<string | null>(null);
+  const [trackSyncError, setTrackSyncError] = useState<string | null>(null);
 
   const project = getProjectById(params.projectId);
   const tracks = project ? getTracksByProjectId(project.id) : [];
@@ -151,6 +154,8 @@ export default function LoopWorkspaceScreen() {
         playsInSilentModeIOS: true,
       });
 
+      setTrackSyncNotice(null);
+      setTrackSyncError(null);
       setRecordingDurationMs(0);
 
       const recordingResult = await Audio.Recording.createAsync(
@@ -189,11 +194,36 @@ export default function LoopWorkspaceScreen() {
         return;
       }
 
-      addRecordedTrack({
+      const savedTrack = addRecordedTrack({
         projectId: project.id,
         localUri,
         durationMs: Math.max(recordingDurationMs, 1000),
       });
+
+      if (backendSessionId) {
+        setTrackSyncNotice('Preparing cloud track metadata...');
+        setTrackSyncError(null);
+
+        void prepareRecordedTrackCloudSync({
+          projectId: project.id,
+          sessionId: backendSessionId,
+          trackId: savedTrack.id,
+          name: savedTrack.name,
+          durationMs: savedTrack.durationMs,
+          volume: savedTrack.volume,
+          isMuted: savedTrack.muted,
+        })
+          .then(() => {
+            setTrackSyncNotice('Cloud track metadata saved for future audio upload.');
+            setTrackSyncError(null);
+          })
+          .catch(() => {
+            setTrackSyncNotice(null);
+            setTrackSyncError(
+              'Cloud track sync unavailable. Track is saved locally on this device.'
+            );
+          });
+      }
 
       setRecordingDurationMs(0);
     } catch {
@@ -569,6 +599,18 @@ export default function LoopWorkspaceScreen() {
         {sessionSyncError ? (
           <View style={styles.noticeCard}>
             <Text style={styles.noticeText}>{sessionSyncError}</Text>
+          </View>
+        ) : null}
+
+        {trackSyncNotice ? (
+          <View style={styles.noticeCard}>
+            <Text style={styles.noticeText}>{trackSyncNotice}</Text>
+          </View>
+        ) : null}
+
+        {trackSyncError ? (
+          <View style={styles.noticeCard}>
+            <Text style={styles.noticeText}>{trackSyncError}</Text>
           </View>
         ) : null}
 
