@@ -81,11 +81,15 @@ Current behavior:
 load local projects immediately
 try to fetch backend projects
 show backend projects when available
+merge backend projects with local-only projects
 fall back to local/starter projects when backend is unavailable
 try to create projects through backend
 fall back to local project creation when backend create fails
 when opening a workspace, try to ensure a simple backend session exists
-keep recording and playback local-first when backend session sync fails
+after recording, try to prepare cloud upload target and track metadata
+keep recording and playback local-first when backend sync fails
+
+Development note: The default memory backend forgets projects and sessions when restarted. Local mobile projects can remain on the device even when the restarted backend no longer knows them.
 ```
 
 The API client files are:
@@ -104,12 +108,12 @@ services/tracks-api.ts
 - Project list/create project is connected to the backend with local fallback.
 - Projects are still cached locally with AsyncStorage.
 - Recorded audio files are still stored locally on the device.
-- Mobile does not upload audio to S3 yet.
-- Mobile does not save backend track metadata yet.
+- Mobile prepares S3 upload targets and backend track metadata when backend sync is available.
+- Mobile does not PUT audio bytes to S3 yet.
 - No auth/user ownership yet.
 
 ## Recommended next step
 
-Wire recorded audio upload through the upload URL and tracks API wrappers.
+Upload recorded audio bytes to the presigned URL after local recording, then keep local playback as the fallback.
 
 The app should keep the local-first demo working while backend sync is added in small, reversible steps.

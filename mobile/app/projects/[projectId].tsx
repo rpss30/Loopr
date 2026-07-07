@@ -2,12 +2,22 @@ import Slider from '@react-native-community/slider';
 import { Audio } from 'expo-av';
 import { Link, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Alert, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  Alert,
+  Animated,
+  Pressable,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 
 import { useProjects } from '../../features/projects/project-store';
 import { deleteLocalAudioFile } from '../../features/tracks/audio-file-cleanup';
 import { useTracks } from '../../features/tracks/track-store';
 import { ensureBackendSessionForProject } from '../../services/project-session-sync';
+import { prepareRecordedTrackCloudSync } from '../../services/recorded-track-cloud-sync';
 import { LoopTrack } from '../../types/track';
 
 async function stopAndUnloadSound(sound: Audio.Sound) {
@@ -49,7 +59,9 @@ export default function LoopWorkspaceScreen() {
   const [isSessionPlaying, setIsSessionPlaying] = useState(false);
   const [backendSessionId, setBackendSessionId] = useState<string | null>(null);
   const [isEnsuringBackendSession, setIsEnsuringBackendSession] = useState(false);
-  const [sessionSyncError, setSessionSyncError] = useState<string | null>(null);
+  const [syncToastMessage, setSyncToastMessage] = useState<string | null>(null);
+  const syncToastTranslateX = useRef(new Animated.Value(360)).current;
+  const syncToastOpacity = useRef(new Animated.Value(0)).current;
 
   const project = getProjectById(params.projectId);
   const tracks = project ? getTracksByProjectId(project.id) : [];
@@ -57,11 +69,76 @@ export default function LoopWorkspaceScreen() {
   const isRecording = recording !== null;
   const playableSessionTracks = tracks.filter((track) => track.localUri && !track.muted);
   const canPlaySession = playableSessionTracks.length > 0;
+  const syncToastText = isEnsuringBackendSession
+    ? 'Preparing backend session sync...'
+    : syncToastMessage;
+
+  useEffect(() => {
+    if (!syncToastText) {
+      Animated.parallel([
+        Animated.timing(syncToastTranslateX, {
+          toValue: 360,
+          duration: 220,
+          useNativeDriver: true,
+        }),
+        Animated.timing(syncToastOpacity, {
+          toValue: 0,
+          duration: 220,
+          useNativeDriver: true,
+        }),
+      ]).start();
+
+      return;
+    }
+
+    syncToastTranslateX.setValue(360);
+    syncToastOpacity.setValue(0);
+
+    Animated.parallel([
+      Animated.timing(syncToastTranslateX, {
+        toValue: 0,
+        duration: 240,
+        useNativeDriver: true,
+      }),
+      Animated.timing(syncToastOpacity, {
+        toValue: 1,
+        duration: 240,
+        useNativeDriver: true,
+      }),
+    ]).start();
+
+    if (!syncToastMessage) {
+      return;
+    }
+
+    const timeoutId = setTimeout(() => {
+      Animated.parallel([
+        Animated.timing(syncToastTranslateX, {
+          toValue: 360,
+          duration: 220,
+          useNativeDriver: true,
+        }),
+        Animated.timing(syncToastOpacity, {
+          toValue: 0,
+          duration: 220,
+          useNativeDriver: true,
+        }),
+      ]).start(({ finished }) => {
+        if (finished) {
+          setSyncToastMessage(null);
+        }
+      });
+    }, 3200);
+
+    return () => {
+      clearTimeout(timeoutId);
+    };
+  }, [syncToastMessage, syncToastOpacity, syncToastText, syncToastTranslateX]);
 
   useEffect(() => {
     if (!project) {
       setBackendSessionId(null);
-      setSessionSyncError(null);
+      setSyncToastMessage(null);
       setIsEnsuringBackendSession(false);
       return;
     }
@@ -84,15 +161,15 @@ export default function LoopWorkspaceScreen() {
         }
 
         setBackendSessionId(session.id);
-        setSessionSyncError(null);
+        setSyncToastMessage('Backend session ready for future cloud track sync.');
       } catch {
         if (!isMounted) {
           return;
         }
 
         setBackendSessionId(null);
-        setSessionSyncError(
-          'Backend session sync unavailable. Recording remains local on this device.'
+        setSyncToastMessage(
+          'Backend session unavailable for this project. Recording remains local on this device.'
         );
       } finally {
         if (isMounted) {
@@ -151,6 +228,7 @@ export default function LoopWorkspaceScreen() {
         playsInSilentModeIOS: true,
       });
 
+      setSyncToastMessage(null);
       setRecordingDurationMs(0);
 
       const recordingResult = await Audio.Recording.createAsync(
@@ -189,11 +267,34 @@ export default function LoopWorkspaceScreen() {
         return;
       }
 
-      addRecordedTrack({
+      const savedTrack = addRecordedTrack({
         projectId: project.id,
         localUri,
         durationMs: Math.max(recordingDurationMs, 1000),
       });
+
+      if (backendSessionId) {
+        setSyncToastMessage('Preparing cloud track metadata...');
+
+        void prepareRecordedTrackCloudSync({
+          projectId: project.id,
+          sessionId: backendSessionId,
+          trackId: savedTrack.id,
+          name: savedTrack.name,
+          durationMs: savedTrack.durationMs,
+          volume: savedTrack.volume,
+          isMuted: savedTrack.muted,
+        })
+          .then(() => {
+            setSyncToastMessage('Cloud track metadata saved for future audio upload.');
+          })
+          .catch(() => {
+            setSyncToastMessage(null);
+            setSyncToastMessage(
+              'Cloud track sync unavailable. Track is saved locally on this device.'
+            );
+          });
+      }
 
       setRecordingDurationMs(0);
     } catch {
@@ -552,26 +653,6 @@ export default function LoopWorkspaceScreen() {
           </View>
         ) : null}
 
-        {isEnsuringBackendSession ? (
-          <View style={styles.noticeCard}>
-            <Text style={styles.noticeText}>Preparing backend session sync...</Text>
-          </View>
-        ) : null}
-
-        {backendSessionId ? (
-          <View style={styles.noticeCard}>
-            <Text style={styles.noticeText}>
-              Backend session ready for future cloud track sync.
-            </Text>
-          </View>
-        ) : null}
-
-        {sessionSyncError ? (
-          <View style={styles.noticeCard}>
-            <Text style={styles.noticeText}>{sessionSyncError}</Text>
-          </View>
-        ) : null}
-
         <View style={styles.transportCard}>
           <Text style={styles.sectionTitle}>Session controls</Text>
 
@@ -664,6 +745,21 @@ export default function LoopWorkspaceScreen() {
           )}
         </View>
       </ScrollView>
+
+      {syncToastText ? (
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            styles.toastOverlay,
+            {
+              opacity: syncToastOpacity,
+              transform: [{ translateX: syncToastTranslateX }],
+            },
+          ]}
+        >
+          <Text style={styles.toastText}>{syncToastText}</Text>
+        </Animated.View>
+      ) : null}
     </SafeAreaView>
   );
 }
@@ -862,17 +958,32 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
   },
-  noticeCard: {
+  toastOverlay: {
+    position: 'absolute',
+    top: 64,
+    left: 16,
+    right: 16,
+    zIndex: 20,
     backgroundColor: '#172554',
-    borderRadius: 18,
-    padding: 14,
+    borderRadius: 999,
+    paddingHorizontal: 16,
+    paddingVertical: 11,
     borderWidth: 1,
     borderColor: '#1D4ED8',
+    shadowColor: '#000000',
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    shadowOffset: {
+      width: 0,
+      height: 6,
+    },
+    elevation: 8,
   },
-  noticeText: {
+  toastText: {
     color: '#BFDBFE',
     fontSize: 14,
     fontWeight: '700',
+    textAlign: 'center',
   },
   transportCard: {
     backgroundColor: '#111827',

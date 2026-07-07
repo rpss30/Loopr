@@ -48,6 +48,13 @@ const starterProjects: LoopProject[] = [
   },
 ];
 
+function mergeProjectsById(localProjects: LoopProject[], backendProjects: LoopProject[]) {
+  const backendProjectIds = new Set(backendProjects.map((project) => project.id));
+  const localOnlyProjects = localProjects.filter((project) => !backendProjectIds.has(project.id));
+
+  return [...backendProjects, ...localOnlyProjects];
+}
+
 const ProjectContext = createContext<ProjectContextValue | undefined>(undefined);
 
 export function ProjectProvider({ children }: PropsWithChildren) {
@@ -78,7 +85,7 @@ export function ProjectProvider({ children }: PropsWithChildren) {
           }
 
           if (response.projects.length > 0) {
-            setProjects(response.projects);
+            setProjects(mergeProjectsById(localProjects, response.projects));
             setProjectSyncError(null);
           }
         } catch {
