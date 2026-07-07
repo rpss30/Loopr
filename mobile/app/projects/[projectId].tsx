@@ -2,7 +2,16 @@ import Slider from '@react-native-community/slider';
 import { Audio } from 'expo-av';
 import { Link, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Alert, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  Alert,
+  Animated,
+  Pressable,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 
 import { useProjects } from '../../features/projects/project-store';
 import { deleteLocalAudioFile } from '../../features/tracks/audio-file-cleanup';
@@ -51,6 +60,8 @@ export default function LoopWorkspaceScreen() {
   const [backendSessionId, setBackendSessionId] = useState<string | null>(null);
   const [isEnsuringBackendSession, setIsEnsuringBackendSession] = useState(false);
   const [syncToastMessage, setSyncToastMessage] = useState<string | null>(null);
+  const syncToastTranslateX = useRef(new Animated.Value(360)).current;
+  const syncToastOpacity = useRef(new Animated.Value(0)).current;
 
   const project = getProjectById(params.projectId);
   const tracks = project ? getTracksByProjectId(project.id) : [];
@@ -58,20 +69,71 @@ export default function LoopWorkspaceScreen() {
   const isRecording = recording !== null;
   const playableSessionTracks = tracks.filter((track) => track.localUri && !track.muted);
   const canPlaySession = playableSessionTracks.length > 0;
+  const syncToastText = isEnsuringBackendSession
+    ? 'Preparing backend session sync...'
+    : syncToastMessage;
 
   useEffect(() => {
+    if (!syncToastText) {
+      Animated.parallel([
+        Animated.timing(syncToastTranslateX, {
+          toValue: 360,
+          duration: 220,
+          useNativeDriver: true,
+        }),
+        Animated.timing(syncToastOpacity, {
+          toValue: 0,
+          duration: 220,
+          useNativeDriver: true,
+        }),
+      ]).start();
+
+      return;
+    }
+
+    syncToastTranslateX.setValue(360);
+    syncToastOpacity.setValue(0);
+
+    Animated.parallel([
+      Animated.timing(syncToastTranslateX, {
+        toValue: 0,
+        duration: 240,
+        useNativeDriver: true,
+      }),
+      Animated.timing(syncToastOpacity, {
+        toValue: 1,
+        duration: 240,
+        useNativeDriver: true,
+      }),
+    ]).start();
+
     if (!syncToastMessage) {
       return;
     }
 
     const timeoutId = setTimeout(() => {
-      setSyncToastMessage(null);
+      Animated.parallel([
+        Animated.timing(syncToastTranslateX, {
+          toValue: 360,
+          duration: 220,
+          useNativeDriver: true,
+        }),
+        Animated.timing(syncToastOpacity, {
+          toValue: 0,
+          duration: 220,
+          useNativeDriver: true,
+        }),
+      ]).start(({ finished }) => {
+        if (finished) {
+          setSyncToastMessage(null);
+        }
+      });
     }, 3200);
 
     return () => {
       clearTimeout(timeoutId);
     };
-  }, [syncToastMessage]);
+  }, [syncToastMessage, syncToastOpacity, syncToastText, syncToastTranslateX]);
 
   useEffect(() => {
     if (!project) {
@@ -107,7 +169,7 @@ export default function LoopWorkspaceScreen() {
 
         setBackendSessionId(null);
         setSyncToastMessage(
-          'Backend session sync unavailable. Recording remains local on this device.'
+          'Backend session unavailable for this project. Recording remains local on this device.'
         );
       } finally {
         if (isMounted) {
@@ -591,18 +653,6 @@ export default function LoopWorkspaceScreen() {
           </View>
         ) : null}
 
-        {isEnsuringBackendSession ? (
-          <View style={styles.toastCard}>
-            <Text style={styles.toastText}>Preparing backend session sync...</Text>
-          </View>
-        ) : null}
-
-        {syncToastMessage ? (
-          <View style={styles.toastCard}>
-            <Text style={styles.toastText}>{syncToastMessage}</Text>
-          </View>
-        ) : null}
-
         <View style={styles.transportCard}>
           <Text style={styles.sectionTitle}>Session controls</Text>
 
@@ -695,6 +745,21 @@ export default function LoopWorkspaceScreen() {
           )}
         </View>
       </ScrollView>
+
+      {syncToastText ? (
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            styles.toastOverlay,
+            {
+              opacity: syncToastOpacity,
+              transform: [{ translateX: syncToastTranslateX }],
+            },
+          ]}
+        >
+          <Text style={styles.toastText}>{syncToastText}</Text>
+        </Animated.View>
+      ) : null}
     </SafeAreaView>
   );
 }
@@ -893,14 +958,26 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
   },
-  toastCard: {
-    alignSelf: 'center',
+  toastOverlay: {
+    position: 'absolute',
+    top: 64,
+    left: 16,
+    right: 16,
+    zIndex: 20,
     backgroundColor: '#172554',
     borderRadius: 999,
     paddingHorizontal: 16,
     paddingVertical: 11,
     borderWidth: 1,
     borderColor: '#1D4ED8',
+    shadowColor: '#000000',
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    shadowOffset: {
+      width: 0,
+      height: 6,
+    },
+    elevation: 8,
   },
   toastText: {
     color: '#BFDBFE',

@@ -81,12 +81,15 @@ Current behavior:
 load local projects immediately
 try to fetch backend projects
 show backend projects when available
+merge backend projects with local-only projects
 fall back to local/starter projects when backend is unavailable
 try to create projects through backend
 fall back to local project creation when backend create fails
 when opening a workspace, try to ensure a simple backend session exists
 after recording, try to prepare cloud upload target and track metadata
 keep recording and playback local-first when backend sync fails
+
+Development note: The default memory backend forgets projects and sessions when restarted. Local mobile projects can remain on the device even when the restarted backend no longer knows them.
 ```
 
 The API client files are:
