@@ -17,7 +17,7 @@ import { useProjects } from '../../features/projects/project-store';
 import { deleteLocalAudioFile } from '../../features/tracks/audio-file-cleanup';
 import { useTracks } from '../../features/tracks/track-store';
 import { ensureBackendSessionForProject } from '../../services/project-session-sync';
-import { prepareRecordedTrackCloudSync } from '../../services/recorded-track-cloud-sync';
+import { syncRecordedTrackToCloud } from '../../services/recorded-track-cloud-sync';
 import { LoopTrack } from '../../types/track';
 
 async function stopAndUnloadSound(sound: Audio.Sound) {
@@ -274,19 +274,33 @@ export default function LoopWorkspaceScreen() {
       });
 
       if (backendSessionId) {
-        setSyncToastMessage('Preparing cloud track metadata...');
+        setSyncToastMessage('Uploading recording for cloud sync...');
 
-        void prepareRecordedTrackCloudSync({
+        void syncRecordedTrackToCloud({
           projectId: project.id,
           sessionId: backendSessionId,
           trackId: savedTrack.id,
+          localUri,
           name: savedTrack.name,
           durationMs: savedTrack.durationMs,
           volume: savedTrack.volume,
           isMuted: savedTrack.muted,
         })
-          .then(() => {
-            setSyncToastMessage('Cloud track metadata saved for future audio upload.');
+          .then((syncResult) => {
+            if (syncResult.status === 'synced') {
+              setSyncToastMessage('Recording uploaded and cloud track metadata saved.');
+              return;
+            }
+
+            if (syncResult.status === 'failed') {
+              setSyncToastMessage(null);
+              setSyncToastMessage(
+                'Cloud track sync unavailable. Track is saved locally on this device.'
+              );
+              return;
+            }
+
+            setSyncToastMessage(null);
           })
           .catch(() => {
             setSyncToastMessage(null);
