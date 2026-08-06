@@ -2,7 +2,7 @@
 
 This is the backend API for Loopr, a mobile-first loop-building workspace for musicians.
 
-The backend is a TypeScript Express API for projects, sessions, and audio upload coordination. The mobile app still works local-first, but the backend now has the first cloud-storage building block: generating presigned S3 upload URLs for recorded audio files.
+The backend is a TypeScript Express API for projects, sessions, track metadata, and audio upload coordination. The mobile app still works local-first, while the backend provides cloud-sync building blocks: metadata repositories and presigned S3 upload URLs for recorded audio files.
 
 ## Current stack
 
@@ -105,6 +105,8 @@ S3_PRESIGNED_UPLOAD_EXPIRES_SECONDS=900
 `S3_AUDIO_BUCKET_NAME` controls which bucket presigned audio upload URLs target.
 
 `S3_PRESIGNED_UPLOAD_EXPIRES_SECONDS` controls how long generated upload URLs remain valid. The current maximum is `3600` seconds.
+
+Presigned URL generation requires AWS signing credentials. Local E2E runs use dummy credentials and do not create real AWS resources.
 
 ## DynamoDB Local setup
 
@@ -238,6 +240,10 @@ Current defaults:
 volume: 1
 isMuted: false
 ```
+
+## E2E and manual QA
+
+Loopr has a root Playwright suite for backend API contracts and Expo web smoke coverage. See `docs/e2e-and-manual-qa.md` for the exact commands, covered flows, skipped flows, and manual Expo Go checklist.
 
 ## Audio upload URL route
 
