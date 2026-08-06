@@ -87,6 +87,7 @@ try to create projects through backend
 fall back to local project creation when backend create fails
 when opening a workspace, try to ensure a simple backend session exists
 after recording, try to prepare cloud upload target and track metadata
+upload recorded local audio bytes to the presigned URL before saving backend track metadata
 keep recording and playback local-first when backend sync fails
 
 Development note: The default memory backend forgets projects and sessions when restarted. Local mobile projects can remain on the device even when the restarted backend no longer knows them.
@@ -108,12 +109,10 @@ services/tracks-api.ts
 - Project list/create project is connected to the backend with local fallback.
 - Projects are still cached locally with AsyncStorage.
 - Recorded audio files are still stored locally on the device.
-- Mobile prepares S3 upload targets and backend track metadata when backend sync is available.
-- Mobile does not PUT audio bytes to S3 yet.
+- Mobile uploads recorded audio bytes to backend-provided presigned URLs before saving backend track metadata.
+- Cloud upload requires a working S3-compatible target. Without one, upload failures are non-blocking and local playback remains usable.
 - No auth/user ownership yet.
 
 ## Recommended next step
 
-Upload recorded audio bytes to the presigned URL after local recording, then keep local playback as the fallback.
-
-The app should keep the local-first demo working while backend sync is added in small, reversible steps.
+Run manual Expo Go QA against the local memory backend and keep documenting the exact local-first/cloud-sync behavior as features land.
