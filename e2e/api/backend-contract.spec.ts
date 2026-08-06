@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 test.use({
-  baseURL: process.env.LOOPR_E2E_API_BASE_URL ?? 'http://127.0.0.1:3001',
+  baseURL: process.env.LOOPR_E2E_API_BASE_URL ?? 'http://127.0.0.1:3101',
 });
 
 test.afterEach(async ({ request }) => {

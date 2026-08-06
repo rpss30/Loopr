@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-const apiBaseUrl = process.env.LOOPR_E2E_API_BASE_URL ?? 'http://127.0.0.1:3001';
+const apiBaseUrl = process.env.LOOPR_E2E_API_BASE_URL ?? 'http://127.0.0.1:3101';
 
 test.beforeEach(async ({ page, request }) => {
   await request.post(`${apiBaseUrl}/api/v1/e2e/reset`);
