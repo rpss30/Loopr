@@ -10,6 +10,8 @@ web-build/
 # test output
 coverage/
 **/coverage/
+playwright-report/
+test-results/
 
 # caches
 .expo/

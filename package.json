@@ -1,0 +1,30 @@
+{
+  "name": "loopr",
+  "version": "1.0.0",
+  "description": "",
+  "private": true,
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "e2e": "playwright test",
+    "e2e:backend": "cd backend && NODE_ENV=test PERSISTENCE_DRIVER=memory PORT=3001 npx tsx watch src/server.ts",
+    "e2e:mobile": "cd mobile && EXPO_PUBLIC_LOOPR_API_BASE_URL=http://127.0.0.1:3001 npx expo start --web --port 8082",
+    "e2e:report": "playwright show-report"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rpss30/loopr.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/rpss30/loopr/issues"
+  },
+  "homepage": "https://github.com/rpss30/loopr#readme",
+  "devDependencies": {
+    "@playwright/test": "^1.62.1"
+  }
+}
