@@ -1,8 +1,8 @@
 # Loopr DynamoDB Metadata Design
 
-This document describes the planned DynamoDB metadata model for Loopr.
+This document describes the DynamoDB metadata model for Loopr.
 
-The current backend uses in-memory repositories. This design prepares the backend for a later DynamoDB-backed implementation without adding AWS SDK or Terraform in this branch.
+The ASP.NET Core backend can run with either in-memory repositories for local development or DynamoDB repositories for metadata persistence. Terraform defines the matching table shape, but real AWS resources are not created unless `terraform apply` is run intentionally.
 
 ## Goals
 
@@ -10,10 +10,10 @@ Loopr needs to store metadata for:
 
 - Projects
 - Saved loop sessions
-- Track metadata later
-- Audio object references later
+- Track metadata
+- Audio object references
 
-Audio files themselves should not be stored in DynamoDB. Future audio files should be stored in S3, with DynamoDB storing metadata such as project ID, session ID, track ID, duration, volume, mute state, and S3 object key.
+Audio files themselves should not be stored in DynamoDB. Recorded audio can be uploaded to S3 through presigned URLs, with DynamoDB storing metadata such as project ID, session ID, track ID, duration, volume, mute state, and S3 object key. Mobile local playback remains the fallback path.
 
 ## Current access patterns
 
@@ -26,9 +26,13 @@ GET  /api/v1/projects/:projectId
 GET  /api/v1/sessions
 POST /api/v1/sessions
 GET  /api/v1/sessions/:sessionId
+GET  /api/v1/tracks
+POST /api/v1/tracks
+GET  /api/v1/tracks/:trackId
+POST /api/v1/audio/upload-url
 ```
 
-The planned DynamoDB model should support:
+The table supports:
 
 ```bash
 list projects
@@ -38,24 +42,29 @@ list sessions
 list sessions by project
 get session by id
 create session for a project
+list tracks
+list tracks by session
+get track by id
+create track metadata
 ```
 
-## Proposed single-table design
+## Single-table design
 
 Table name:
+
 ```bash
 loopr-metadata
 ```
 
-
 Primary key:
+
 ```bash
 pk
 sk
 ```
 
+Global secondary indexes:
 
-Global secondary indexes planned:
 ```bash
 gsi1pk
 gsi1sk
@@ -63,13 +72,12 @@ gsi2pk
 gsi2sk
 ```
 
-
-
 ## Project item
 
 A project item stores workspace-level metadata.
 
 Example item:
+
 ```bash
 {
   "pk": "PROJECT#project-1",
@@ -86,28 +94,28 @@ Example item:
 }
 ```
 
-
 Primary access:
+
 ```bash
 get project by id:
   pk = PROJECT#projectId
   sk = METADATA
 ```
 
-
 Project list access:
+
 ```bash
 query GSI1:
   gsi1pk = PROJECTS
   scan/index order by gsi1sk
 ```
 
-
 ## Session item
 
 A session item stores saved loop session metadata and belongs to a project.
 
 Example item:
+
 ```bash
 {
   "pk": "PROJECT#project-1",
@@ -125,35 +133,37 @@ Example item:
 }
 ```
 
-
 Sessions by project access:
+
 ```bash
 query table:
   pk = PROJECT#projectId
   sk begins_with SESSION#
 ```
 
-
 Session lookup by ID access:
+
 ```bash
 query GSI2:
   gsi2pk = SESSION#sessionId
   gsi2sk = METADATA
 ```
 
+## Track item
 
-## Future track item
+Track metadata is stored under the project partition and grouped by session in the sort key.
 
-Track metadata can be added under either a project or session partition.
+Key shape:
 
-Possible shape:
 ```bash
-pk = SESSION#sessionId
-sk = TRACK#trackId
+pk = PROJECT#projectId
+sk = SESSION#sessionId#TRACK#trackId
+gsi2pk = TRACK#trackId
+gsi2sk = METADATA
 ```
 
-
 Example metadata fields:
+
 ```bash
 trackId
 sessionId
@@ -161,21 +171,36 @@ projectId
 name
 durationMs
 volume
-muted
-solo
-orderIndex
+isMuted
 s3Bucket
 s3Key
+contentType
 createdAt
 updatedAt
 ```
 
+Tracks by session access:
 
-## Future S3 audio design
+```bash
+query table:
+  pk = PROJECT#projectId
+  sk begins_with SESSION#sessionId#TRACK#
+```
+
+Track lookup by ID access:
+
+```bash
+query GSI2:
+  gsi2pk = TRACK#trackId
+  gsi2sk = METADATA
+```
+
+## S3 audio references
 
 Audio files should be stored in S3.
 
-Possible object key shape:
+Object key shape:
+
 ```bash
 projects/{projectId}/sessions/{sessionId}/tracks/{trackId}.m4a
 ```
@@ -184,12 +209,7 @@ DynamoDB should store the S3 reference, not the audio file.
 
 ## Current limitations
 
-This is a design-only branch.
-
-- No AWS SDK integration yet.
-- No DynamoDB table is created yet.
-- No Terraform is added yet.
-- No deployed environment exists yet.
+- Local development defaults to in-memory persistence.
+- DynamoDB mode requires either DynamoDB Local or an existing AWS table.
+- Terraform has been validated, but real AWS resources have not been created by default.
 - No authentication or user partitioning exists yet.
-
-A future branch should introduce DynamoDB repository implementations behind the existing repository interfaces.

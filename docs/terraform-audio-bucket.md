@@ -1,12 +1,12 @@
 # Terraform Audio Bucket
 
-This document describes the Terraform design for Loopr's future S3 audio bucket.
+This document describes the Terraform design for Loopr's S3 audio bucket.
 
-This branch only validates infrastructure configuration. It does not apply Terraform or create real AWS resources.
+This configuration has been validated only. It does not apply Terraform or create real AWS resources by default.
 
 ## Purpose
 
-Loopr will eventually store recorded audio files in S3 and store metadata references in DynamoDB.
+Loopr can coordinate recorded audio uploads through backend-generated presigned S3 URLs while keeping local playback as the mobile fallback path. DynamoDB stores the metadata references for uploaded tracks.
 
 The audio bucket is intended to store objects using this key shape:
 
@@ -65,10 +65,11 @@ DYNAMODB_METADATA_TABLE_NAME
 S3_AUDIO_BUCKET_NAME
 ```
 
-The backend already has `S3_AUDIO_BUCKET_NAME` config from the S3 audio design branch.
+The ASP.NET Core backend reads `S3_AUDIO_BUCKET_NAME` when generating presigned upload targets.
 
 ## Current limitations
+
 - Terraform is validated only.
-- No `terraform apply` is run in this branch.
-- No real S3 bucket is created yet.
+- No `terraform apply` has been run from this project by default.
+- No real S3 bucket is created until infrastructure is applied intentionally.
 - Presigned URL generation and mobile upload coordination exist, but real uploads require a configured S3-compatible target.
