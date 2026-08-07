@@ -20,10 +20,12 @@ The current ASP.NET Core backend provides:
 - repository interfaces for project, session, and track persistence
 - configurable in-memory repository implementations
 - repository contract tests that can be reused for future DynamoDB implementations
+- project REST endpoint parity
+- session REST endpoint parity
+- track metadata REST endpoint parity
 
 It does not yet include:
 
-- project/session/track REST endpoints
 - DynamoDB repositories
 - S3 presigned upload generation
 - mobile integration
@@ -92,6 +94,26 @@ OpenAPI document in development:
 curl http://localhost:5101/openapi/v1.json
 ```
 
+## Current API Surface
+
+```text
+GET  /health
+
+GET  /api/v1/projects
+POST /api/v1/projects
+GET  /api/v1/projects/{projectId}
+
+GET  /api/v1/sessions
+POST /api/v1/sessions
+GET  /api/v1/sessions/{sessionId}
+
+GET  /api/v1/tracks
+POST /api/v1/tracks
+GET  /api/v1/tracks/{trackId}
+```
+
+The REST endpoints use in-memory repositories by default and preserve the current Node backend response envelopes, validation bounds, default BPM behavior, track metadata defaults, and structured error codes.
+
 ## Configuration
 
 Current ASP.NET Core configuration:
@@ -134,6 +156,6 @@ S3_PRESIGNED_UPLOAD_EXPIRES_SECONDS
 
 ## Migration Boundary
 
-Do not point the React Native app at this backend yet. The current ASP.NET Core service only proves the foundation, health contract, and repository layer.
+Do not point the React Native app at this backend yet. The current ASP.NET Core service does not include S3 presigned upload URLs, DynamoDB persistence, or mobile E2E validation yet.
 
-The next migration branch should add project/session/track REST endpoint parity against the repository abstractions without touching DynamoDB or S3 yet.
+The next migration branch should add DynamoDB persistence behind the repository abstractions without changing the mobile app yet.
