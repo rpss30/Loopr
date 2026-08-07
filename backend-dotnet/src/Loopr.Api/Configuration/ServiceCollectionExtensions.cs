@@ -1,5 +1,6 @@
 using System.Text.Json.Serialization;
 using Amazon.DynamoDBv2;
+using Amazon.S3;
 using Loopr.Api.Errors;
 using Loopr.Api.Repositories;
 using Loopr.Api.Services;
@@ -97,6 +98,13 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ProjectService>();
         services.AddScoped<SessionService>();
         services.AddScoped<TrackService>();
+        services.AddSingleton<IAmazonS3>(serviceProvider =>
+            S3ClientFactory.CreateClient(
+                serviceProvider.GetRequiredService<IOptions<S3Options>>().Value
+            )
+        );
+        services.AddSingleton<IAudioUploadUrlSigner, S3AudioUploadUrlSigner>();
+        services.AddScoped<AudioUploadUrlService>();
 
         return services;
     }
