@@ -619,7 +619,7 @@ PR 1 did not:
 - DynamoDB attribute casing and key names must match existing Terraform and stored data.
 - S3 presigned URL behavior differs between AWS SDKs and will need contract tests.
 - The test-only reset route must not leak into production.
-- The existing Playwright suite assumes the Node backend startup command until mobile integration is intentionally switched.
+- The existing Node backend should remain available until the removal branch, but the default Playwright app suite should switch to ASP.NET Core with the mobile cutover.
 - .NET is not globally installed on the current machine, so local setup docs must be explicit.
 
 ## Contract Compatibility Assessment

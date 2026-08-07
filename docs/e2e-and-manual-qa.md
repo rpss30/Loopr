@@ -16,17 +16,19 @@ npm run e2e
 The root Playwright config starts:
 
 ```text
-backend test server: http://127.0.0.1:3101
+ASP.NET Core test server: http://127.0.0.1:5102
 Expo web server:     http://127.0.0.1:8082
 ```
 
 The backend test server uses:
 
 ```text
-NODE_ENV=test
+ASPNETCORE_ENVIRONMENT=Test
 PERSISTENCE_DRIVER=memory
 AWS_REGION=us-west-2
 S3_AUDIO_BUCKET_NAME=loopr-audio-local
+S3_PRESIGNED_UPLOAD_EXPIRES_SECONDS=900
+CORS_ALLOWED_ORIGINS=http://127.0.0.1:8082,http://localhost:8082
 AWS_ACCESS_KEY_ID=loopr-test
 AWS_SECRET_ACCESS_KEY=loopr-test
 ```
@@ -38,7 +40,7 @@ The dummy AWS credentials are only for signing presigned URLs during tests. They
 - Backend project/session/track metadata creation and readback.
 - Backend track listing.
 - Backend presigned upload target response shape.
-- Backend Zod validation for malformed audio upload requests.
+- Backend validation for malformed audio upload requests.
 - Expo web project creation.
 - Expo web project visibility after page reload.
 

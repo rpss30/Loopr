@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 test.use({
-  baseURL: process.env.LOOPR_E2E_API_BASE_URL ?? 'http://127.0.0.1:3101',
+  baseURL: process.env.LOOPR_E2E_API_BASE_URL ?? 'http://127.0.0.1:5102',
 });
 
 test.afterEach(async ({ request }) => {
@@ -106,7 +106,7 @@ test('returns a presigned upload target without requiring a real S3 bucket', asy
   expect(upload.uploadUrl).toContain('X-Amz-Signature=');
 });
 
-test('rejects malformed upload payloads with Zod validation details', async ({ request }) => {
+test('rejects malformed upload payloads with validation details', async ({ request }) => {
   const response = await request.post('/api/v1/audio/upload-url', {
     data: {
       projectId: 'project-1',
