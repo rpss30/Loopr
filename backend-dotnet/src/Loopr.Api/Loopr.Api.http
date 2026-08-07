@@ -1,0 +1,6 @@
+@Loopr.Api_HostAddress = http://localhost:5101
+
+GET {{Loopr.Api_HostAddress}}/health
+Accept: application/json
+
+###
