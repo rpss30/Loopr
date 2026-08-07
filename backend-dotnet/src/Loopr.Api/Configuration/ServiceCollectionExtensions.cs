@@ -1,8 +1,10 @@
 using System.Text.Json.Serialization;
+using Amazon.DynamoDBv2;
 using Loopr.Api.Errors;
 using Loopr.Api.Repositories;
 using Loopr.Api.Services;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 
 namespace Loopr.Api.Configuration;
 
@@ -71,6 +73,16 @@ public static class ServiceCollectionExtensions
             .Validate(options => PersistenceDrivers.IsSupported(options.Driver))
             .ValidateOnStart();
 
+        services
+            .AddOptions<DynamoDbOptions>()
+            .Bind(configuration.GetSection(DynamoDbOptions.SectionName))
+            .Configure(options =>
+            {
+                ApplyDynamoDbEnvironmentOverrides(configuration, options);
+            })
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+
         AddRepositories(services, ResolvePersistenceDriver(configuration));
         services.AddScoped<ProjectService>();
         services.AddScoped<SessionService>();
@@ -90,9 +102,15 @@ public static class ServiceCollectionExtensions
             return;
         }
 
-        throw new NotSupportedException(
-            "DynamoDB persistence is not implemented in the ASP.NET Core backend yet."
+        services.AddSingleton<IAmazonDynamoDB>(serviceProvider =>
+            DynamoDbClientFactory.CreateClient(
+                serviceProvider.GetRequiredService<IOptions<DynamoDbOptions>>().Value
+            )
         );
+        services.AddSingleton<IDynamoDbMetadataStore, DynamoDbMetadataStore>();
+        services.AddSingleton<IProjectRepository, DynamoDbProjectRepository>();
+        services.AddSingleton<ISessionRepository, DynamoDbSessionRepository>();
+        services.AddSingleton<ITrackRepository, DynamoDbTrackRepository>();
     }
 
     private static string ResolvePersistenceDriver(IConfiguration configuration)
@@ -100,6 +118,22 @@ public static class ServiceCollectionExtensions
         return configuration["PERSISTENCE_DRIVER"]
             ?? configuration[$"{PersistenceOptions.SectionName}:Driver"]
             ?? PersistenceDrivers.Memory;
+    }
+
+    private static void ApplyDynamoDbEnvironmentOverrides(
+        IConfiguration configuration,
+        DynamoDbOptions options
+    )
+    {
+        options.Region = configuration["AWS_REGION"] ?? options.Region;
+        options.MetadataTableName =
+            configuration["DYNAMODB_METADATA_TABLE_NAME"] ?? options.MetadataTableName;
+        options.Endpoint = EmptyToNull(configuration["DYNAMODB_ENDPOINT"] ?? options.Endpoint);
+    }
+
+    private static string? EmptyToNull(string? value)
+    {
+        return string.IsNullOrWhiteSpace(value) ? null : value;
     }
 
     private static string ToCamelCasePath(string path)

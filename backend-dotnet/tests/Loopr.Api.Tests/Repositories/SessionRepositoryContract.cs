@@ -5,6 +5,8 @@ namespace Loopr.Api.Tests.Repositories;
 
 public abstract class SessionRepositoryContract
 {
+    protected virtual bool SupportsReset => true;
+
     protected abstract ISessionRepository CreateRepository();
 
     [Fact]
@@ -48,6 +50,15 @@ public abstract class SessionRepositoryContract
             CreateSession("session-1", "Verse Loop", DateTimeOffset.Parse("2026-01-01T00:00:00Z")),
             CancellationToken.None
         );
+
+        if (!SupportsReset)
+        {
+            await Assert.ThrowsAsync<NotSupportedException>(() =>
+                repository.ResetAsync(CancellationToken.None)
+            );
+            return;
+        }
+
         await repository.ResetAsync(CancellationToken.None);
 
         var sessions = await repository.ListAsync(CancellationToken.None);

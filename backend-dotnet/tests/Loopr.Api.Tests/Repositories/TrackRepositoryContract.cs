@@ -5,6 +5,8 @@ namespace Loopr.Api.Tests.Repositories;
 
 public abstract class TrackRepositoryContract
 {
+    protected virtual bool SupportsReset => true;
+
     protected abstract ITrackRepository CreateRepository();
 
     [Fact]
@@ -48,6 +50,15 @@ public abstract class TrackRepositoryContract
             CreateTrack("track-1", "Guitar Layer", DateTimeOffset.Parse("2026-01-01T00:00:00Z")),
             CancellationToken.None
         );
+
+        if (!SupportsReset)
+        {
+            await Assert.ThrowsAsync<NotSupportedException>(() =>
+                repository.ResetAsync(CancellationToken.None)
+            );
+            return;
+        }
+
         await repository.ResetAsync(CancellationToken.None);
 
         var tracks = await repository.ListAsync(CancellationToken.None);

@@ -19,14 +19,14 @@ The current ASP.NET Core backend provides:
 - domain records for project, session, and track metadata
 - repository interfaces for project, session, and track persistence
 - configurable in-memory repository implementations
-- repository contract tests that can be reused for future DynamoDB implementations
+- DynamoDB repository implementations for project, session, and track metadata
+- repository contract tests shared by memory and DynamoDB implementations
 - project REST endpoint parity
 - session REST endpoint parity
 - track metadata REST endpoint parity
 
 It does not yet include:
 
-- DynamoDB repositories
 - S3 presigned upload generation
 - mobile integration
 - Docker production image
@@ -125,6 +125,11 @@ Current ASP.NET Core configuration:
   },
   "Persistence": {
     "Driver": "memory"
+  },
+  "DynamoDb": {
+    "Region": "us-west-2",
+    "MetadataTableName": "loopr-metadata",
+    "Endpoint": null
   }
 }
 ```
@@ -134,28 +139,33 @@ Environment variable equivalent:
 ```bash
 Loopr__ServiceName=loopr-api
 Persistence__Driver=memory
+DynamoDb__Region=us-west-2
+DynamoDb__MetadataTableName=loopr-metadata
+DynamoDb__Endpoint=
 ```
 
-The current repository layer also accepts the existing Node backend environment variable name:
+The current repository layer also accepts existing Node backend environment variable names:
 
 ```bash
 PERSISTENCE_DRIVER=memory
+AWS_REGION=us-west-2
+DYNAMODB_METADATA_TABLE_NAME=loopr-metadata
+DYNAMODB_ENDPOINT=
 ```
 
-`dynamodb` is reserved for a future branch and intentionally fails fast in this ASP.NET Core implementation until DynamoDB repositories are added.
+Use the default `memory` driver for normal local development. Use `dynamodb` only when a metadata table is available through AWS credentials or a local DynamoDB endpoint:
 
-Future branches should add typed options for AWS settings while preserving the existing Node environment names where practical:
-
-```text
-AWS_REGION
-DYNAMODB_METADATA_TABLE_NAME
-DYNAMODB_ENDPOINT
-S3_AUDIO_BUCKET_NAME
-S3_PRESIGNED_UPLOAD_EXPIRES_SECONDS
+```bash
+PERSISTENCE_DRIVER=dynamodb
+DYNAMODB_METADATA_TABLE_NAME=loopr-local-metadata
+DYNAMODB_ENDPOINT=http://127.0.0.1:8001
+dotnet run --project src/Loopr.Api
 ```
+
+The DynamoDB repositories preserve the existing Terraform table shape and intentionally do not support `ResetAsync`.
 
 ## Migration Boundary
 
-Do not point the React Native app at this backend yet. The current ASP.NET Core service does not include S3 presigned upload URLs, DynamoDB persistence, or mobile E2E validation yet.
+Do not point the React Native app at this backend yet. The current ASP.NET Core service does not include S3 presigned upload URLs or mobile E2E validation yet.
 
-The next migration branch should add DynamoDB persistence behind the repository abstractions without changing the mobile app yet.
+The next migration branch should add S3 presigned upload coordination without changing the mobile app yet.
