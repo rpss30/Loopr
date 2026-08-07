@@ -82,6 +82,14 @@ EXPO_PUBLIC_LOOPR_API_BASE_URL=http://YOUR_MAC_IP:5101 npx expo start
 
 Replace `YOUR_MAC_IP` with the IP from `ipconfig getifaddr en0`.
 
+Before scanning the QR code, verify the backend is reachable through the same LAN IP:
+
+```bash
+curl http://YOUR_MAC_IP:5101/health
+```
+
+If Expo Go still shows backend sync as unavailable after that check passes, stop Expo and restart it with `npx expo start -c`. The `EXPO_PUBLIC_LOOPR_API_BASE_URL` value is bundled into the app code, so old Metro bundles can keep using the previous API URL until the cache is cleared.
+
 ## Manual Checklist
 
 - App opens in Expo Go without crashing.

@@ -12,8 +12,20 @@ function createJsonResponse(body: unknown, init: ResponseInit = {}) {
 }
 
 describe('api config', () => {
+  const originalApiBaseUrl = process.env.EXPO_PUBLIC_LOOPR_API_BASE_URL;
+
+  afterEach(() => {
+    process.env.EXPO_PUBLIC_LOOPR_API_BASE_URL = originalApiBaseUrl;
+  });
+
   it('uses localhost by default', () => {
     expect(getApiBaseUrl({})).toBe('http://localhost:5101');
+  });
+
+  it('reads the Expo public API URL from process env', () => {
+    process.env.EXPO_PUBLIC_LOOPR_API_BASE_URL = 'http://192.168.1.10:5101/';
+
+    expect(getApiBaseUrl()).toBe('http://192.168.1.10:5101');
   });
 
   it('uses the configured Expo public API URL', () => {
