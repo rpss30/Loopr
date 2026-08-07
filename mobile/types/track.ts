@@ -1,3 +1,5 @@
+export type LoopTrackCloudSyncStatus = 'local-only' | 'syncing' | 'synced' | 'sync-failed';
+
 export type LoopTrack = {
   id: string;
   projectId: string;
@@ -8,6 +10,8 @@ export type LoopTrack = {
   muted: boolean;
   solo: boolean;
   orderIndex: number;
+  cloudSyncStatus: LoopTrackCloudSyncStatus;
+  backendTrackId: string | null;
   createdAt: string;
   updatedAt: string;
 };

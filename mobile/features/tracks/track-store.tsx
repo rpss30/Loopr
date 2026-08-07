@@ -8,13 +8,18 @@ import {
   useState,
 } from 'react';
 
-import { LoopTrack } from '../../types/track';
+import { type LoopTrack, type LoopTrackCloudSyncStatus } from '../../types/track';
 import { loadTracksFromStorage, saveTracksToStorage } from './track-storage';
 
 type AddRecordedTrackInput = {
   projectId: string;
   localUri: string;
   durationMs: number;
+};
+
+type UpdateTrackCloudSyncInput = {
+  cloudSyncStatus: LoopTrackCloudSyncStatus;
+  backendTrackId?: string | null;
 };
 
 type TrackContextValue = {
@@ -26,6 +31,7 @@ type TrackContextValue = {
   renameTrack: (trackId: string, name: string) => void;
   deleteTrack: (trackId: string) => void;
   deleteTracksByProjectId: (projectId: string) => void;
+  updateTrackCloudSyncStatus: (trackId: string, input: UpdateTrackCloudSyncInput) => void;
   updateTrackVolume: (trackId: string, volume: number) => void;
   getTracksByProjectId: (projectId: string) => LoopTrack[];
   getTrackCountForProject: (projectId: string) => number;
@@ -42,6 +48,8 @@ const starterTracks: LoopTrack[] = [
     muted: false,
     solo: false,
     orderIndex: 0,
+    cloudSyncStatus: 'local-only',
+    backendTrackId: null,
     createdAt: new Date('2025-01-01T12:05:00.000Z').toISOString(),
     updatedAt: new Date('2025-01-01T12:05:00.000Z').toISOString(),
   },
@@ -55,6 +63,8 @@ const starterTracks: LoopTrack[] = [
     muted: false,
     solo: false,
     orderIndex: 1,
+    cloudSyncStatus: 'local-only',
+    backendTrackId: null,
     createdAt: new Date('2025-01-01T12:06:00.000Z').toISOString(),
     updatedAt: new Date('2025-01-01T12:06:00.000Z').toISOString(),
   },
@@ -68,6 +78,8 @@ const starterTracks: LoopTrack[] = [
     muted: true,
     solo: false,
     orderIndex: 2,
+    cloudSyncStatus: 'local-only',
+    backendTrackId: null,
     createdAt: new Date('2025-01-01T12:07:00.000Z').toISOString(),
     updatedAt: new Date('2025-01-01T12:07:00.000Z').toISOString(),
   },
@@ -81,6 +93,8 @@ const starterTracks: LoopTrack[] = [
     muted: false,
     solo: false,
     orderIndex: 0,
+    cloudSyncStatus: 'local-only',
+    backendTrackId: null,
     createdAt: new Date('2025-01-02T12:05:00.000Z').toISOString(),
     updatedAt: new Date('2025-01-02T12:05:00.000Z').toISOString(),
   },
@@ -94,6 +108,8 @@ const starterTracks: LoopTrack[] = [
     muted: false,
     solo: false,
     orderIndex: 1,
+    cloudSyncStatus: 'local-only',
+    backendTrackId: null,
     createdAt: new Date('2025-01-02T12:06:00.000Z').toISOString(),
     updatedAt: new Date('2025-01-02T12:06:00.000Z').toISOString(),
   },
@@ -167,6 +183,8 @@ export function TrackProvider({ children }: PropsWithChildren) {
         muted: false,
         solo: false,
         orderIndex: projectTrackCount,
+        cloudSyncStatus: 'local-only',
+        backendTrackId: null,
         createdAt: now,
         updatedAt: now,
       };
@@ -254,6 +272,29 @@ export function TrackProvider({ children }: PropsWithChildren) {
     setTracks((currentTracks) => currentTracks.filter((track) => track.projectId !== projectId));
   }, []);
 
+  const updateTrackCloudSyncStatus = useCallback(
+    (trackId: string, input: UpdateTrackCloudSyncInput) => {
+      const now = new Date().toISOString();
+
+      setTracks((currentTracks) =>
+        currentTracks.map((track) => {
+          if (track.id !== trackId) {
+            return track;
+          }
+
+          return {
+            ...track,
+            cloudSyncStatus: input.cloudSyncStatus,
+            backendTrackId:
+              input.backendTrackId === undefined ? track.backendTrackId : input.backendTrackId,
+            updatedAt: now,
+          };
+        })
+      );
+    },
+    []
+  );
+
   const updateTrackVolume = useCallback((trackId: string, volume: number) => {
     const normalizedVolume = Math.min(Math.max(volume, 0), 1);
     const now = new Date().toISOString();
@@ -299,6 +340,7 @@ export function TrackProvider({ children }: PropsWithChildren) {
       renameTrack,
       deleteTrack,
       deleteTracksByProjectId,
+      updateTrackCloudSyncStatus,
       updateTrackVolume,
       getTracksByProjectId,
       getTrackCountForProject,
@@ -314,6 +356,7 @@ export function TrackProvider({ children }: PropsWithChildren) {
       toggleTrackMuted,
       trackStorageError,
       tracks,
+      updateTrackCloudSyncStatus,
       updateTrackVolume,
     ]
   );

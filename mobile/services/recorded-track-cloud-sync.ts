@@ -9,6 +9,7 @@ import {
   UploadLocalAudioFileInput,
   UploadLocalAudioFileResult,
 } from './audio-file-upload';
+import { type LoopTrackCloudSyncStatus } from '../types/track';
 import { BackendTrackMetadata, TracksApi, tracksApi } from './tracks-api';
 
 export type SyncRecordedTrackCloudInput = {
@@ -45,6 +46,20 @@ export type RecordedTrackCloudSyncResult =
   | SyncedRecordedTrackCloudSync
   | SkippedRecordedTrackCloudSync
   | FailedRecordedTrackCloudSync;
+
+export function getTrackCloudSyncStatusForResult(
+  result: RecordedTrackCloudSyncResult
+): LoopTrackCloudSyncStatus {
+  if (result.status === 'synced') {
+    return 'synced';
+  }
+
+  if (result.status === 'skipped') {
+    return 'local-only';
+  }
+
+  return 'sync-failed';
+}
 
 type AudioUploadApiLike = Pick<AudioUploadApi, 'createUploadUrl'>;
 type TracksApiLike = Pick<TracksApi, 'createTrack'>;

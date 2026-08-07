@@ -26,6 +26,8 @@ const validTrack: LoopTrack = {
   muted: false,
   solo: false,
   orderIndex: 0,
+  cloudSyncStatus: 'synced',
+  backendTrackId: 'backend-track-1',
   createdAt: '2026-01-01T00:00:00.000Z',
   updatedAt: '2026-01-01T00:00:00.000Z',
 };
@@ -50,6 +52,73 @@ describe('track storage', () => {
     const tracks = await loadTracksFromStorage();
 
     expect(tracks).toEqual([validTrack]);
+  });
+
+  it('defaults older stored tracks without sync status to local-only', async () => {
+    const olderStoredTrack = {
+      id: 'track-1',
+      projectId: 'project-1',
+      name: 'Guitar Layer',
+      localUri: 'file:///recording.m4a',
+      durationMs: 12000,
+      volume: 0.8,
+      muted: false,
+      solo: false,
+      orderIndex: 0,
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    };
+
+    mockGetItem.mockResolvedValueOnce(JSON.stringify([olderStoredTrack]));
+
+    const tracks = await loadTracksFromStorage();
+
+    expect(tracks).toEqual([
+      {
+        ...olderStoredTrack,
+        cloudSyncStatus: 'local-only',
+        backendTrackId: null,
+      },
+    ]);
+  });
+
+  it('filters out tracks with invalid sync status fields', async () => {
+    mockGetItem.mockResolvedValueOnce(
+      JSON.stringify([
+        validTrack,
+        {
+          ...validTrack,
+          id: 'bad-track',
+          cloudSyncStatus: 'uploaded',
+        },
+      ])
+    );
+
+    const tracks = await loadTracksFromStorage();
+
+    expect(tracks).toEqual([validTrack]);
+  });
+
+  it('loads previously in-flight sync attempts as failed instead of syncing forever', async () => {
+    mockGetItem.mockResolvedValueOnce(
+      JSON.stringify([
+        {
+          ...validTrack,
+          cloudSyncStatus: 'syncing',
+          backendTrackId: null,
+        },
+      ])
+    );
+
+    const tracks = await loadTracksFromStorage();
+
+    expect(tracks).toEqual([
+      {
+        ...validTrack,
+        cloudSyncStatus: 'sync-failed',
+        backendTrackId: null,
+      },
+    ]);
   });
 
   it('filters out invalid stored tracks', async () => {

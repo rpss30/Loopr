@@ -18,8 +18,11 @@ import { useProjects } from '../../features/projects/project-store';
 import { deleteLocalAudioFile } from '../../features/tracks/audio-file-cleanup';
 import { useTracks } from '../../features/tracks/track-store';
 import { ensureBackendSessionForProject } from '../../services/project-session-sync';
-import { syncRecordedTrackToCloud } from '../../services/recorded-track-cloud-sync';
-import { LoopTrack } from '../../types/track';
+import {
+  getTrackCloudSyncStatusForResult,
+  syncRecordedTrackToCloud,
+} from '../../services/recorded-track-cloud-sync';
+import { type LoopTrack, type LoopTrackCloudSyncStatus } from '../../types/track';
 
 async function stopAndUnloadSound(sound: Audio.Sound) {
   try {
@@ -46,6 +49,7 @@ export default function LoopWorkspaceScreen() {
     renameTrack,
     toggleTrackMuted,
     trackStorageError,
+    updateTrackCloudSyncStatus,
     updateTrackVolume,
   } = useTracks();
 
@@ -276,6 +280,10 @@ export default function LoopWorkspaceScreen() {
 
       if (backendSessionId) {
         setSyncToastMessage('Uploading recording for cloud sync...');
+        updateTrackCloudSyncStatus(savedTrack.id, {
+          cloudSyncStatus: 'syncing',
+          backendTrackId: null,
+        });
 
         void syncRecordedTrackToCloud({
           projectId: project.id,
@@ -288,6 +296,11 @@ export default function LoopWorkspaceScreen() {
           isMuted: savedTrack.muted,
         })
           .then((syncResult) => {
+            updateTrackCloudSyncStatus(savedTrack.id, {
+              cloudSyncStatus: getTrackCloudSyncStatusForResult(syncResult),
+              backendTrackId: syncResult.status === 'synced' ? syncResult.track.id : null,
+            });
+
             if (syncResult.status === 'synced') {
               setSyncToastMessage('Recording uploaded and cloud track metadata saved.');
               return;
@@ -304,11 +317,20 @@ export default function LoopWorkspaceScreen() {
             setSyncToastMessage(null);
           })
           .catch(() => {
+            updateTrackCloudSyncStatus(savedTrack.id, {
+              cloudSyncStatus: 'sync-failed',
+              backendTrackId: null,
+            });
             setSyncToastMessage(null);
             setSyncToastMessage(
               'Cloud track sync unavailable. Track is saved locally on this device.'
             );
           });
+      } else {
+        updateTrackCloudSyncStatus(savedTrack.id, {
+          cloudSyncStatus: 'local-only',
+          backendTrackId: null,
+        });
       }
 
       setRecordingDurationMs(0);
@@ -801,6 +823,7 @@ function TrackCard({
 }) {
   const hasAudio = Boolean(track.localUri);
   const [draftVolume, setDraftVolume] = useState(track.volume);
+  const cloudSyncBadge = getCloudSyncBadge(track.cloudSyncStatus);
 
   useEffect(() => {
     setDraftVolume(track.volume);
@@ -889,6 +912,9 @@ function TrackCard({
       <View style={styles.trackBadges}>
         {isPlayingInSession ? <Text style={styles.playingBadge}>Playing</Text> : null}
         {track.localUri ? <Text style={styles.recordedBadge}>Recorded</Text> : null}
+        {track.localUri ? (
+          <Text style={[styles.cloudSyncBadge, cloudSyncBadge.style]}>{cloudSyncBadge.label}</Text>
+        ) : null}
         {track.muted ? <Text style={styles.mutedBadge}>Muted</Text> : null}
         {track.solo ? <Text style={styles.soloBadge}>Solo</Text> : null}
       </View>
@@ -902,6 +928,31 @@ function formatDuration(durationMs: number) {
   const seconds = totalSeconds % 60;
 
   return `${minutes}:${String(seconds).padStart(2, '0')}`;
+}
+
+function getCloudSyncBadge(status: LoopTrackCloudSyncStatus) {
+  switch (status) {
+    case 'syncing':
+      return {
+        label: 'Syncing',
+        style: styles.cloudSyncBadgeSyncing,
+      };
+    case 'synced':
+      return {
+        label: 'Synced',
+        style: styles.cloudSyncBadgeSynced,
+      };
+    case 'sync-failed':
+      return {
+        label: 'Sync failed',
+        style: styles.cloudSyncBadgeFailed,
+      };
+    case 'local-only':
+      return {
+        label: 'Local only',
+        style: styles.cloudSyncBadgeLocalOnly,
+      };
+  }
 }
 
 const styles = StyleSheet.create({
@@ -1163,6 +1214,30 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     fontSize: 12,
     fontWeight: '800',
+  },
+  cloudSyncBadge: {
+    borderRadius: 999,
+    overflow: 'hidden',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  cloudSyncBadgeLocalOnly: {
+    color: '#E2E8F0',
+    backgroundColor: '#334155',
+  },
+  cloudSyncBadgeSyncing: {
+    color: '#BFDBFE',
+    backgroundColor: '#1E3A8A',
+  },
+  cloudSyncBadgeSynced: {
+    color: '#BBF7D0',
+    backgroundColor: '#064E3B',
+  },
+  cloudSyncBadgeFailed: {
+    color: '#FECACA',
+    backgroundColor: '#7F1D1D',
   },
   mutedBadge: {
     color: '#FCA5A5',
