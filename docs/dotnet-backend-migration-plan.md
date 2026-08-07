@@ -648,12 +648,12 @@ GET  /api/v1/sessions/{sessionId}
 GET  /api/v1/tracks
 POST /api/v1/tracks
 GET  /api/v1/tracks/{trackId}
+POST /api/v1/audio/upload-url
 ```
 
 The ASP.NET Core backend does not yet implement:
 
 ```text
-POST /api/v1/audio/upload-url
 POST /api/v1/e2e/reset
 ```
 
@@ -735,6 +735,26 @@ PR 4 should not:
 - run `terraform apply`
 - create AWS resources
 - add S3 presigned upload generation
+- point the React Native app at ASP.NET Core
+- change Terraform
+- remove the Node backend
+
+## ASP.NET Core Architecture For PR 5
+
+The S3 upload URL parity branch should add:
+
+- AWS SDK for .NET S3 client configuration
+- typed S3 options with the existing `AWS_REGION`, `S3_AUDIO_BUCKET_NAME`, and `S3_PRESIGNED_UPLOAD_EXPIRES_SECONDS` environment variable names
+- S3 object key generation matching the existing `projects/{projectId}/sessions/{sessionId}/tracks/{trackId}.m4a` shape
+- `POST /api/v1/audio/upload-url` parity
+- injectable S3 signing behavior so tests do not require AWS credentials
+- integration coverage for upload URL success, validation failures, unsupported content types, and signing errors
+
+PR 5 should not:
+
+- run `terraform apply`
+- create AWS resources
+- upload audio bytes
 - point the React Native app at ASP.NET Core
 - change Terraform
 - remove the Node backend
