@@ -16,17 +16,19 @@ npm run e2e
 The root Playwright config starts:
 
 ```text
-backend test server: http://127.0.0.1:3101
+ASP.NET Core test server: http://127.0.0.1:5102
 Expo web server:     http://127.0.0.1:8082
 ```
 
 The backend test server uses:
 
 ```text
-NODE_ENV=test
+ASPNETCORE_ENVIRONMENT=Test
 PERSISTENCE_DRIVER=memory
 AWS_REGION=us-west-2
 S3_AUDIO_BUCKET_NAME=loopr-audio-local
+S3_PRESIGNED_UPLOAD_EXPIRES_SECONDS=900
+CORS_ALLOWED_ORIGINS=http://127.0.0.1:8082,http://localhost:8082
 AWS_ACCESS_KEY_ID=loopr-test
 AWS_SECRET_ACCESS_KEY=loopr-test
 ```
@@ -38,7 +40,7 @@ The dummy AWS credentials are only for signing presigned URLs during tests. They
 - Backend project/session/track metadata creation and readback.
 - Backend track listing.
 - Backend presigned upload target response shape.
-- Backend Zod validation for malformed audio upload requests.
+- Backend validation for malformed audio upload requests.
 - Expo web project creation.
 - Expo web project visibility after page reload.
 
@@ -50,16 +52,18 @@ Reason: Expo web recording uses browser `MediaRecorder` and creates `blob:` URLs
 
 ## Manual Expo Go QA
 
-Start the backend:
+Start the ASP.NET Core backend:
 
 ```bash
-cd /Users/rishavpreetsingh/Documents/Projects/loopr/backend
+cd /Users/rishavpreetsingh/Documents/Projects/loopr/backend-dotnet
 
 PERSISTENCE_DRIVER=memory \
-PORT=3001 \
 AWS_REGION=us-west-2 \
 S3_AUDIO_BUCKET_NAME=loopr-audio-local \
-npm run dev
+S3_PRESIGNED_UPLOAD_EXPIRES_SECONDS=900 \
+AWS_ACCESS_KEY_ID=loopr-local \
+AWS_SECRET_ACCESS_KEY=loopr-local \
+dotnet run --project src/Loopr.Api
 ```
 
 Find the Mac local network IP:
@@ -73,7 +77,7 @@ Start Expo for physical iPhone testing:
 ```bash
 cd /Users/rishavpreetsingh/Documents/Projects/loopr/mobile
 
-EXPO_PUBLIC_LOOPR_API_BASE_URL=http://YOUR_MAC_IP:3001 npx expo start
+EXPO_PUBLIC_LOOPR_API_BASE_URL=http://YOUR_MAC_IP:5101 npx expo start
 ```
 
 Replace `YOUR_MAC_IP` with the IP from `ipconfig getifaddr en0`.

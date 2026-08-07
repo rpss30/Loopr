@@ -45,7 +45,7 @@ The mobile app now includes a small backend API client layer.
 Default API base URL:
 
 ```text
-http://localhost:3001
+http://localhost:5101
 ```
 
 For physical iPhone testing through Expo Go, `localhost` points to the phone, not your Mac. Use your Mac's local network IP address instead.
@@ -53,7 +53,7 @@ For physical iPhone testing through Expo Go, `localhost` points to the phone, no
 Example:
 
 ```bash
-EXPO_PUBLIC_LOOPR_API_BASE_URL=http://192.168.1.10:3001 npx expo start
+EXPO_PUBLIC_LOOPR_API_BASE_URL=http://192.168.1.10:5101 npx expo start
 ```
 
 Replace `192.168.1.10` with your Mac's local IP address.
@@ -115,4 +115,4 @@ services/tracks-api.ts
 
 ## Recommended next step
 
-Run manual Expo Go QA against the local memory backend and keep documenting the exact local-first/cloud-sync behavior as features land.
+Run manual Expo Go QA against the ASP.NET Core memory backend and keep documenting the exact local-first/cloud-sync behavior as features land.

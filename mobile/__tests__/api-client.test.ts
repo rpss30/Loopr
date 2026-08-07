@@ -13,19 +13,19 @@ function createJsonResponse(body: unknown, init: ResponseInit = {}) {
 
 describe('api config', () => {
   it('uses localhost by default', () => {
-    expect(getApiBaseUrl({})).toBe('http://localhost:3001');
+    expect(getApiBaseUrl({})).toBe('http://localhost:5101');
   });
 
   it('uses the configured Expo public API URL', () => {
     expect(
       getApiBaseUrl({
-        EXPO_PUBLIC_LOOPR_API_BASE_URL: 'http://192.168.1.10:3001/',
+        EXPO_PUBLIC_LOOPR_API_BASE_URL: 'http://192.168.1.10:5101/',
       })
-    ).toBe('http://192.168.1.10:3001');
+    ).toBe('http://192.168.1.10:5101');
   });
 
   it('normalizes trailing slashes', () => {
-    expect(normalizeApiBaseUrl('http://localhost:3001///')).toBe('http://localhost:3001');
+    expect(normalizeApiBaseUrl('http://localhost:5101///')).toBe('http://localhost:5101');
   });
 });
 
@@ -38,7 +38,7 @@ describe('ApiClient', () => {
     );
 
     const client = new ApiClient({
-      baseUrl: 'http://localhost:3001',
+      baseUrl: 'http://localhost:5101',
       fetcher,
     });
 
@@ -47,7 +47,7 @@ describe('ApiClient', () => {
     expect(response).toEqual({
       status: 'ok',
     });
-    expect(fetcher).toHaveBeenCalledWith('http://localhost:3001/health', {
+    expect(fetcher).toHaveBeenCalledWith('http://localhost:5101/health', {
       method: 'GET',
       headers: {
         Accept: 'application/json',
@@ -65,7 +65,7 @@ describe('ApiClient', () => {
     );
 
     const client = new ApiClient({
-      baseUrl: 'http://localhost:3001/',
+      baseUrl: 'http://localhost:5101/',
       fetcher,
     });
 
@@ -73,7 +73,7 @@ describe('ApiClient', () => {
       name: 'Acoustic Idea',
     });
 
-    expect(fetcher).toHaveBeenCalledWith('http://localhost:3001/api/v1/projects', {
+    expect(fetcher).toHaveBeenCalledWith('http://localhost:5101/api/v1/projects', {
       method: 'POST',
       headers: {
         Accept: 'application/json',
@@ -100,7 +100,7 @@ describe('ApiClient', () => {
     );
 
     const client = new ApiClient({
-      baseUrl: 'http://localhost:3001',
+      baseUrl: 'http://localhost:5101',
       fetcher,
     });
 
