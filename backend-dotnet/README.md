@@ -155,6 +155,14 @@ docker compose down
 
 The Docker and Compose defaults do not create AWS resources. They use memory persistence and local-only placeholder AWS credentials so presigned URL generation can be tested without contacting S3.
 
+Run the container verification script from the repo root:
+
+```bash
+npm run dotnet:docker:verify
+```
+
+The script builds the image, starts it on `http://127.0.0.1:5104`, verifies `/health`, creates a project through the API, checks presigned upload URL generation, and removes the container on exit.
+
 ## Current API Surface
 
 ```text

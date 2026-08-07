@@ -36,6 +36,9 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
 
+      - name: Verify ASP.NET Core Docker image
+        run: npm run dotnet:docker:verify
+
       - name: Run ASP.NET Core API E2E
         run: npm run e2e:dotnet
 
