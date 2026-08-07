@@ -25,11 +25,11 @@ The current ASP.NET Core backend provides:
 - session REST endpoint parity
 - track metadata REST endpoint parity
 - S3 presigned upload URL parity
+- multi-stage Docker production image
 
 It does not yet include:
 
-- mobile integration
-- Docker production image
+- intentional mobile default cutover
 - Node backend removal
 
 ## Requirements
@@ -111,6 +111,57 @@ npm run e2e:dotnet-mobile
 ```
 
 This starts `backend-dotnet` on `http://127.0.0.1:5102` and Expo web on `http://127.0.0.1:8083`. It validates project creation and persistence through the mobile app shell without changing the app's default backend target.
+
+## Docker
+
+Build the ASP.NET Core API production image from the repo root:
+
+```bash
+cd /Users/rishavpreetsingh/Documents/Projects/loopr
+docker build -f backend-dotnet/Dockerfile -t loopr-dotnet-api:local .
+```
+
+Run the containerized API with local memory persistence:
+
+```bash
+docker run --rm \
+  -p 127.0.0.1:5103:8080 \
+  -e PERSISTENCE_DRIVER=memory \
+  -e AWS_REGION=us-west-2 \
+  -e S3_AUDIO_BUCKET_NAME=loopr-audio-local \
+  -e S3_PRESIGNED_UPLOAD_EXPIRES_SECONDS=900 \
+  -e AWS_ACCESS_KEY_ID=loopr-local \
+  -e AWS_SECRET_ACCESS_KEY=loopr-local \
+  loopr-dotnet-api:local
+```
+
+Health check:
+
+```bash
+curl http://localhost:5103/health
+```
+
+You can also run the same service through Compose:
+
+```bash
+docker compose up --build dotnet-api
+```
+
+When finished:
+
+```bash
+docker compose down
+```
+
+The Docker and Compose defaults do not create AWS resources. They use memory persistence and local-only placeholder AWS credentials so presigned URL generation can be tested without contacting S3.
+
+Run the container verification script from the repo root:
+
+```bash
+npm run dotnet:docker:verify
+```
+
+The script builds the image, starts it on `http://127.0.0.1:5104`, verifies `/health`, creates a project through the API, checks presigned upload URL generation, and removes the container on exit.
 
 ## Current API Surface
 
@@ -205,6 +256,6 @@ The DynamoDB repositories preserve the existing Terraform table shape and intent
 
 ## Migration Boundary
 
-Do not point the React Native app at this backend yet. The current ASP.NET Core service has not been validated against the mobile app yet.
+Do not make this backend the mobile app's default target yet. Expo web project creation has been validated against ASP.NET Core, but native/device cutover has not been completed.
 
 The next migration branch should add the smallest validation or integration checkpoint before any intentional mobile cutover.

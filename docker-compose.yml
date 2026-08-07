@@ -1,4 +1,23 @@
 services:
+  dotnet-api:
+    build:
+      context: .
+      dockerfile: backend-dotnet/Dockerfile
+    container_name: loopr-dotnet-api
+    environment:
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Development}
+      PERSISTENCE_DRIVER: ${PERSISTENCE_DRIVER:-memory}
+      AWS_REGION: ${AWS_REGION:-us-west-2}
+      DYNAMODB_METADATA_TABLE_NAME: ${DYNAMODB_METADATA_TABLE_NAME:-loopr-metadata}
+      DYNAMODB_ENDPOINT: ${DYNAMODB_ENDPOINT:-}
+      S3_AUDIO_BUCKET_NAME: ${S3_AUDIO_BUCKET_NAME:-loopr-audio-local}
+      S3_PRESIGNED_UPLOAD_EXPIRES_SECONDS: ${S3_PRESIGNED_UPLOAD_EXPIRES_SECONDS:-900}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:8082,http://127.0.0.1:8082,http://localhost:8083,http://127.0.0.1:8083,http://localhost:8084,http://127.0.0.1:8084}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-loopr-local}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-loopr-local}
+    ports:
+      - '127.0.0.1:5103:8080'
+
   dynamodb-local:
     image: amazon/dynamodb-local:latest
     container_name: loopr-dynamodb-local
