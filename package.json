@@ -9,6 +9,8 @@
   "scripts": {
     "e2e": "playwright test",
     "e2e:backend": "cd backend && NODE_ENV=test PERSISTENCE_DRIVER=memory PORT=3101 AWS_REGION=us-west-2 S3_AUDIO_BUCKET_NAME=loopr-audio-local AWS_ACCESS_KEY_ID=loopr-test AWS_SECRET_ACCESS_KEY=loopr-test npx tsx watch src/server.ts",
+    "e2e:dotnet": "playwright test --config=playwright.dotnet.config.ts",
+    "e2e:dotnet:backend": "cd backend-dotnet && ASPNETCORE_ENVIRONMENT=Test PERSISTENCE_DRIVER=memory AWS_REGION=us-west-2 S3_AUDIO_BUCKET_NAME=loopr-audio-local S3_PRESIGNED_UPLOAD_EXPIRES_SECONDS=900 AWS_ACCESS_KEY_ID=loopr-test AWS_SECRET_ACCESS_KEY=loopr-test dotnet run --no-launch-profile --project src/Loopr.Api --urls http://127.0.0.1:5102",
     "e2e:mobile": "cd mobile && EXPO_PUBLIC_LOOPR_API_BASE_URL=http://127.0.0.1:3101 npx expo start --web --port 8082",
     "e2e:report": "playwright show-report"
   },
