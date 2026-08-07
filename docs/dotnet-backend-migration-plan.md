@@ -815,3 +815,22 @@ PR 8 should not:
 - create AWS resources
 - change Terraform
 - remove the Node backend
+
+## ASP.NET Core Architecture For PR 9
+
+The Docker support branch should add:
+
+- a multi-stage Dockerfile for the ASP.NET Core API
+- a production runtime image that runs the published app without SDK tooling
+- a non-root runtime user where supported by the base image
+- a container health check for `GET /health`
+- a root Compose service for local memory-backed API validation
+- documentation for build, run, health-check, and teardown commands
+
+PR 9 should not:
+
+- change the mobile app's default API target
+- run `terraform apply`
+- create AWS resources
+- change Terraform
+- remove the Node backend
