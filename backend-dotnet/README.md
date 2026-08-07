@@ -95,23 +95,14 @@ OpenAPI document in development:
 curl http://localhost:5101/openapi/v1.json
 ```
 
-Run the ASP.NET Core API E2E checks from the repo root:
+Run the API and Expo web E2E checks from the repo root:
 
 ```bash
 cd /Users/rishavpreetsingh/Documents/Projects/loopr
-npm run e2e:dotnet
+npm run e2e
 ```
 
-This starts `backend-dotnet` on `http://127.0.0.1:5102` with `ASPNETCORE_ENVIRONMENT=Test`, memory persistence, and fake AWS credentials for local presigned URL generation. It does not contact real AWS services.
-
-Run the Expo web project-flow validation against ASP.NET Core:
-
-```bash
-cd /Users/rishavpreetsingh/Documents/Projects/loopr
-npm run e2e:dotnet-mobile
-```
-
-This starts `backend-dotnet` on `http://127.0.0.1:5102` and Expo web on `http://127.0.0.1:8083`. It validates project creation and persistence through the mobile app shell without changing the app's default backend target.
+This starts `backend-dotnet` on `http://127.0.0.1:5102` with `ASPNETCORE_ENVIRONMENT=Test`, memory persistence, fake AWS credentials for local presigned URL generation, and Expo web on `http://127.0.0.1:8082`. It validates API contracts plus project creation and persistence through the mobile app shell. It does not contact real AWS services.
 
 ## Docker
 

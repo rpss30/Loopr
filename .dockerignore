@@ -8,10 +8,7 @@
 **/node_modules
 
 playwright-report
-playwright-report-dotnet
-playwright-report-dotnet-mobile
 test-results
 
-backend/.env
 backend-dotnet/.env
 mobile/.env
