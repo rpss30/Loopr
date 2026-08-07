@@ -1,4 +1,4 @@
-export const DEFAULT_API_BASE_URL = 'http://localhost:3001';
+export const DEFAULT_API_BASE_URL = 'http://localhost:5101';
 
 type ApiEnvironment = {
   EXPO_PUBLIC_LOOPR_API_BASE_URL?: string;
