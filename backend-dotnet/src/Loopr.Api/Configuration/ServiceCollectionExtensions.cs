@@ -1,8 +1,10 @@
 using System.Text.Json.Serialization;
+using Amazon.DynamoDBv2;
 using Loopr.Api.Errors;
 using Loopr.Api.Repositories;
 using Loopr.Api.Services;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 
 namespace Loopr.Api.Configuration;
 
@@ -100,9 +102,15 @@ public static class ServiceCollectionExtensions
             return;
         }
 
-        throw new NotSupportedException(
-            "DynamoDB persistence is not implemented in the ASP.NET Core backend yet."
+        services.AddSingleton<IAmazonDynamoDB>(serviceProvider =>
+            DynamoDbClientFactory.CreateClient(
+                serviceProvider.GetRequiredService<IOptions<DynamoDbOptions>>().Value
+            )
         );
+        services.AddSingleton<IDynamoDbMetadataStore, DynamoDbMetadataStore>();
+        services.AddSingleton<IProjectRepository, DynamoDbProjectRepository>();
+        services.AddSingleton<ISessionRepository, DynamoDbSessionRepository>();
+        services.AddSingleton<ITrackRepository, DynamoDbTrackRepository>();
     }
 
     private static string ResolvePersistenceDriver(IConfiguration configuration)

@@ -5,6 +5,8 @@ namespace Loopr.Api.Tests.Repositories;
 
 public abstract class ProjectRepositoryContract
 {
+    protected virtual bool SupportsReset => true;
+
     protected abstract IProjectRepository CreateRepository();
 
     [Fact]
@@ -48,6 +50,15 @@ public abstract class ProjectRepositoryContract
             CreateProject("project-1", "Acoustic Loop", DateTimeOffset.Parse("2026-01-01T00:00:00Z")),
             CancellationToken.None
         );
+
+        if (!SupportsReset)
+        {
+            await Assert.ThrowsAsync<NotSupportedException>(() =>
+                repository.ResetAsync(CancellationToken.None)
+            );
+            return;
+        }
+
         await repository.ResetAsync(CancellationToken.None);
 
         var projects = await repository.ListAsync(CancellationToken.None);
