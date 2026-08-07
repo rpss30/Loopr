@@ -29,7 +29,7 @@ public sealed class FoundationTests(ApiTestFactory factory) : IClassFixture<ApiT
         using var client = factory.CreateClient();
 
         var response = await client.GetAsync(
-            "/api/v1/projects/missing",
+            "/missing-route",
             CancellationToken.None
         );
 
@@ -42,7 +42,7 @@ public sealed class FoundationTests(ApiTestFactory factory) : IClassFixture<ApiT
 
         Assert.Equal("not_found", error.GetProperty("code").GetString());
         Assert.Equal(
-            "Route GET /api/v1/projects/missing not found",
+            "Route GET /missing-route not found",
             error.GetProperty("message").GetString()
         );
         Assert.False(string.IsNullOrWhiteSpace(error.GetProperty("traceId").GetString()));
