@@ -24,10 +24,10 @@ The current ASP.NET Core backend provides:
 - project REST endpoint parity
 - session REST endpoint parity
 - track metadata REST endpoint parity
+- S3 presigned upload URL parity
 
 It does not yet include:
 
-- S3 presigned upload generation
 - mobile integration
 - Docker production image
 - Node backend removal
@@ -110,9 +110,11 @@ GET  /api/v1/sessions/{sessionId}
 GET  /api/v1/tracks
 POST /api/v1/tracks
 GET  /api/v1/tracks/{trackId}
+
+POST /api/v1/audio/upload-url
 ```
 
-The REST endpoints use in-memory repositories by default and preserve the current Node backend response envelopes, validation bounds, default BPM behavior, track metadata defaults, and structured error codes.
+The REST endpoints use in-memory repositories by default and preserve the current Node backend response envelopes, validation bounds, default BPM behavior, track metadata defaults, S3 upload URL envelope, and structured error codes.
 
 ## Configuration
 
@@ -130,6 +132,11 @@ Current ASP.NET Core configuration:
     "Region": "us-west-2",
     "MetadataTableName": "loopr-metadata",
     "Endpoint": null
+  },
+  "S3": {
+    "Region": "us-west-2",
+    "AudioBucketName": "loopr-audio-local",
+    "PresignedUploadExpiresSeconds": 900
   }
 }
 ```
@@ -142,6 +149,9 @@ Persistence__Driver=memory
 DynamoDb__Region=us-west-2
 DynamoDb__MetadataTableName=loopr-metadata
 DynamoDb__Endpoint=
+S3__Region=us-west-2
+S3__AudioBucketName=loopr-audio-local
+S3__PresignedUploadExpiresSeconds=900
 ```
 
 The current repository layer also accepts existing Node backend environment variable names:
@@ -151,6 +161,8 @@ PERSISTENCE_DRIVER=memory
 AWS_REGION=us-west-2
 DYNAMODB_METADATA_TABLE_NAME=loopr-metadata
 DYNAMODB_ENDPOINT=
+S3_AUDIO_BUCKET_NAME=loopr-audio-local
+S3_PRESIGNED_UPLOAD_EXPIRES_SECONDS=900
 ```
 
 Use the default `memory` driver for normal local development. Use `dynamodb` only when a metadata table is available through AWS credentials or a local DynamoDB endpoint:
@@ -166,6 +178,6 @@ The DynamoDB repositories preserve the existing Terraform table shape and intent
 
 ## Migration Boundary
 
-Do not point the React Native app at this backend yet. The current ASP.NET Core service does not include S3 presigned upload URLs or mobile E2E validation yet.
+Do not point the React Native app at this backend yet. The current ASP.NET Core service has not been validated against the mobile app yet.
 
-The next migration branch should add S3 presigned upload coordination without changing the mobile app yet.
+The next migration branch should add the smallest validation or integration checkpoint before any intentional mobile cutover.

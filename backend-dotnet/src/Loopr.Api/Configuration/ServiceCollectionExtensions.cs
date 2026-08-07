@@ -1,5 +1,6 @@
 using System.Text.Json.Serialization;
 using Amazon.DynamoDBv2;
+using Amazon.S3;
 using Loopr.Api.Errors;
 using Loopr.Api.Repositories;
 using Loopr.Api.Services;
@@ -83,10 +84,27 @@ public static class ServiceCollectionExtensions
             .ValidateDataAnnotations()
             .ValidateOnStart();
 
+        services
+            .AddOptions<S3Options>()
+            .Bind(configuration.GetSection(S3Options.SectionName))
+            .Configure(options =>
+            {
+                ApplyS3EnvironmentOverrides(configuration, options);
+            })
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+
         AddRepositories(services, ResolvePersistenceDriver(configuration));
         services.AddScoped<ProjectService>();
         services.AddScoped<SessionService>();
         services.AddScoped<TrackService>();
+        services.AddSingleton<IAmazonS3>(serviceProvider =>
+            S3ClientFactory.CreateClient(
+                serviceProvider.GetRequiredService<IOptions<S3Options>>().Value
+            )
+        );
+        services.AddSingleton<IAudioUploadUrlSigner, S3AudioUploadUrlSigner>();
+        services.AddScoped<AudioUploadUrlService>();
 
         return services;
     }
@@ -134,6 +152,24 @@ public static class ServiceCollectionExtensions
     private static string? EmptyToNull(string? value)
     {
         return string.IsNullOrWhiteSpace(value) ? null : value;
+    }
+
+    private static void ApplyS3EnvironmentOverrides(
+        IConfiguration configuration,
+        S3Options options
+    )
+    {
+        options.Region = configuration["AWS_REGION"] ?? options.Region;
+        options.AudioBucketName = configuration["S3_AUDIO_BUCKET_NAME"] ?? options.AudioBucketName;
+
+        var expiresInSeconds = configuration["S3_PRESIGNED_UPLOAD_EXPIRES_SECONDS"];
+
+        if (!string.IsNullOrWhiteSpace(expiresInSeconds))
+        {
+            options.PresignedUploadExpiresSeconds = int.TryParse(expiresInSeconds, out var parsed)
+                ? parsed
+                : 0;
+        }
     }
 
     private static string ToCamelCasePath(string path)
