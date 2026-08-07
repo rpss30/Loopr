@@ -7,7 +7,7 @@ namespace Loopr.Api.Tests;
 public sealed class FoundationTests(ApiTestFactory factory) : IClassFixture<ApiTestFactory>
 {
     [Fact]
-    public async Task HealthEndpointReturnsNodeCompatiblePayload()
+    public async Task HealthEndpointReturnsExpectedPayload()
     {
         using var client = factory.CreateClient();
 

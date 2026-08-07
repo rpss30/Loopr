@@ -4,9 +4,9 @@ This document explains how Loopr verifies its DynamoDB repository implementation
 
 ## Purpose
 
-The backend has DynamoDB repository implementations for project and session metadata. This local workflow verifies those repositories against DynamoDB Local instead of only mocked unit tests.
+The backend has DynamoDB repository implementations for project, session, and track metadata. The standard test suite verifies those repositories with an in-memory fake metadata store so tests do not require DynamoDB Local or AWS credentials.
 
-This gives us confidence before using real AWS infrastructure.
+DynamoDB Local remains useful for manual experiments before using real AWS infrastructure.
 
 ## Local services
 
@@ -35,15 +35,9 @@ Expected port mapping:
 127.0.0.1:8001->8000/tcp
 ```
 
-## Configure backend local env
+## Backend local env
 
-From `backend`:
-
-```bash
-cp .env.dynamodb-local.example .env.dynamodb-local
-```
-
-The local env uses:
+The ASP.NET Core backend can point at DynamoDB Local with:
 
 ```bash
 PERSISTENCE_DRIVER=dynamodb
@@ -54,76 +48,32 @@ AWS_ACCESS_KEY_ID=local
 AWS_SECRET_ACCESS_KEY=local
 ```
 
-The AWS access key and secret are dummy local-only values used for request signing with DynamoDB Local.
-
-## Create local metadata table
-
-From backend:
-
-```bash
-npm run dynamodb:setup:local
-```
-
-Expected first run:
-
-```bash
-Created table loopr-local-metadata.
-Table loopr-local-metadata status: ACTIVE.
-```
-
-Expected later runs:
-
-```bash
-Table loopr-local-metadata already exists.
-Table loopr-local-metadata status: ACTIVE.
-```
-
-## Verify repository flow
-
-From `backend`:
-
-```bash
-npm run dynamodb:verify:local
-```
-
-Expected output includes:
-
-```bash
-Verified DynamoDB Local repository flow.
-```
-
-The verification script creates a project and session using the same service/repository path that the backend uses for DynamoDB persistence.
-
-It verifies:
-
-```bash
-create project
-get project by id
-list projects
-create session
-get session by id
-list sessions
-```
+The AWS access key and secret are dummy local-only values used for request signing with DynamoDB Local. The local table must match the Terraform metadata table shape before the API can use `PERSISTENCE_DRIVER=dynamodb`.
 
 ## Run backend against DynamoDB Local
 
-From `backend`:
+From `backend-dotnet`:
 
 ```bash
-cp .env.dynamodb-local.example .env
-npm run dev
+PERSISTENCE_DRIVER=dynamodb \
+AWS_REGION=us-west-2 \
+DYNAMODB_METADATA_TABLE_NAME=loopr-local-metadata \
+DYNAMODB_ENDPOINT=http://127.0.0.1:8001 \
+AWS_ACCESS_KEY_ID=local \
+AWS_SECRET_ACCESS_KEY=local \
+dotnet run --project src/Loopr.Api
 ```
 
 Then test:
 
 ```bash
-curl http://localhost:3001/health
+curl http://localhost:5101/health
 
-curl -X POST http://localhost:3001/api/v1/projects \
+curl -X POST http://localhost:5101/api/v1/projects \
   -H "Content-Type: application/json" \
   -d '{"name":"DynamoDB Local Project","bpm":90}'
 
-curl http://localhost:3001/api/v1/projects
+curl http://localhost:5101/api/v1/projects
 ```
 
 ## Stop local services
@@ -137,6 +87,6 @@ docker compose down
 ## Current limitations
 - DynamoDB Local is not a deployed AWS environment.
 - Data is in memory and resets when the container stops.
-- Terraform resources are not applied in this branch.
-- No S3 audio bucket exists yet.
+- Terraform resources are not applied by this workflow.
+- No real S3 audio bucket is created by this workflow.
 - No backend deployment exists yet.

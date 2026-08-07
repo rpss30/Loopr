@@ -24,7 +24,7 @@ public sealed class TrackEndpointTests(ApiTestFactory factory) : IClassFixture<A
     }
 
     [Fact]
-    public async Task CreateTrackReturnsNodeCompatibleTrackEnvelope()
+    public async Task CreateTrackReturnsTrackEnvelope()
     {
         await factory.ResetRepositoriesAsync();
         using var client = factory.CreateClient();

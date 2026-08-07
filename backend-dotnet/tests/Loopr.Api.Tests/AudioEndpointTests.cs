@@ -12,7 +12,7 @@ namespace Loopr.Api.Tests;
 public sealed class AudioEndpointTests(ApiTestFactory factory) : IClassFixture<ApiTestFactory>
 {
     [Fact]
-    public async Task CreateUploadUrlReturnsNodeCompatibleUploadEnvelope()
+    public async Task CreateUploadUrlReturnsUploadEnvelope()
     {
         var signer = new RecordingAudioUploadUrlSigner("https://signed.example/upload");
         using var appFactory = CreateFactoryWithSigner(signer);

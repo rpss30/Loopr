@@ -4,10 +4,10 @@ namespace Loopr.Api.Serialization;
 
 public static class IsoTimestamp
 {
-    private const string NodeCompatibleFormat = "yyyy-MM-dd'T'HH:mm:ss.fff'Z'";
+    private const string UtcMillisecondsFormat = "yyyy-MM-dd'T'HH:mm:ss.fff'Z'";
 
     public static string Format(DateTimeOffset timestamp)
     {
-        return timestamp.UtcDateTime.ToString(NodeCompatibleFormat, CultureInfo.InvariantCulture);
+        return timestamp.UtcDateTime.ToString(UtcMillisecondsFormat, CultureInfo.InvariantCulture);
     }
 }

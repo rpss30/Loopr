@@ -1,13 +1,13 @@
 # Loopr Backend API Notes
 
-Loopr's backend API is a TypeScript Express service for local-first mobile sync. It can run with in-memory repositories for local development or DynamoDB repositories for metadata persistence.
+Loopr's backend API is an ASP.NET Core service for local-first mobile sync. It can run with in-memory repositories for local development or DynamoDB repositories for metadata persistence.
 
 ## Base URL
 
 Local development:
 
 ```bash
-http://localhost:3001
+http://localhost:5101
 ```
 
 ## Health
@@ -182,7 +182,8 @@ Errors use this structure:
 {
   "error": {
     "code": "machine_readable_error_code",
-    "message": "Human readable message."
+    "message": "Human readable message.",
+    "traceId": "request-trace-id"
   }
 }
 ```

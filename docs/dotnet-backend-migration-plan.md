@@ -1,6 +1,6 @@
 # Loopr ASP.NET Core Backend Migration Plan
 
-This document records the current backend contract and the first migration checkpoint for replacing the Node.js/Express backend with ASP.NET Core.
+This document records the backend migration from Node.js/Express to ASP.NET Core.
 
 Loopr should remain a local-first multitrack audio capture app. The migration should preserve mobile behavior, Terraform-managed AWS infrastructure, DynamoDB metadata storage, and S3 audio upload coordination.
 
@@ -13,12 +13,12 @@ mobile/
   expo-av recording/playback
   expo-file-system local audio file cleanup and upload file handling
 
-backend/
-  Node.js + Express + TypeScript
-  Zod validation
+backend-dotnet/
+  ASP.NET Core + C#
+  controller-based REST API
   in-memory or DynamoDB repository implementations
   S3 presigned upload URL coordination
-  Vitest + Supertest tests
+  xUnit integration and repository tests
 
 infra/terraform/
   DynamoDB metadata table
@@ -26,15 +26,16 @@ infra/terraform/
   backend environment outputs
 ```
 
-The React Native app points to a configurable REST API base URL through `EXPO_PUBLIC_LOOPR_API_BASE_URL` and now defaults to the ASP.NET Core local API on `http://localhost:5101`.
+The React Native app points to a configurable REST API base URL through `EXPO_PUBLIC_LOOPR_API_BASE_URL` and defaults to the ASP.NET Core local API on `http://localhost:5101`.
 
 ## Current Test Baseline
 
-Checked on the migration branch before adding .NET code:
+Current baseline after the ASP.NET Core cutover:
 
 ```text
-backend npm test: 16 files passed, 80 tests passed
-mobile npm test -- --runInBand: 12 suites passed, 40 tests passed
+backend-dotnet dotnet test: 68 tests passed
+mobile npm test -- --runInBand: 12 suites passed, 41 tests passed
+root npm run e2e: 4 tests passed, 1 browser-native audio reload flow skipped
 ```
 
 The root Playwright suite exists and covers backend API contracts plus Expo web project creation. The browser-native audio recording flow remains intentionally skipped because Expo web uses non-durable `blob:` URLs and does not match iOS file persistence behavior.
@@ -58,20 +59,20 @@ Microsoft.NETCore.App 10.0.10
 
 ## Current Environment Configuration
 
-The Node backend validates this environment shape:
+The ASP.NET Core backend supports this local environment shape:
 
 ```text
-NODE_ENV=development|test|production
-PORT=3001
+ASPNETCORE_ENVIRONMENT=Development|Test|Production
 PERSISTENCE_DRIVER=memory|dynamodb
 AWS_REGION=us-west-2
 DYNAMODB_METADATA_TABLE_NAME=loopr-metadata
 DYNAMODB_ENDPOINT=
+CORS_ALLOWED_ORIGINS=http://127.0.0.1:8082,http://localhost:8082
 S3_AUDIO_BUCKET_NAME=loopr-audio-local
 S3_PRESIGNED_UPLOAD_EXPIRES_SECONDS=900
 ```
 
-The ASP.NET Core backend should keep equivalent configuration names where practical so mobile, docs, and deployment notes remain easy to map.
+The backend also supports strongly typed ASP.NET Core configuration sections such as `Persistence`, `DynamoDb`, and `S3`.
 
 ## Current API Contract
 
@@ -596,7 +597,7 @@ PR 1 established:
 - Controller-based HTTP foundation for clearer request/response discussion.
 - Dependency injection extension point.
 - Strongly typed options for basic service configuration.
-- `GET /health` parity with the current Node backend.
+- `GET /health` parity with the original API contract.
 - OpenAPI endpoint in development.
 - Structured error response foundation with `code`, `message`, and `traceId`.
 - Integration tests using xUnit and `WebApplicationFactory`.
@@ -657,8 +658,8 @@ POST /api/v1/e2e/reset
 Remaining migration work:
 
 ```text
-native/device validation against ASP.NET Core
-Node backend removal
+production deployment decision
+real AWS resource creation only when explicitly chosen
 ```
 
 ## Expected Files For PR 1
@@ -793,7 +794,7 @@ The API E2E validation branch should add:
 PR 7 should not:
 
 - point the React Native app at ASP.NET Core
-- replace the current Node/Expo Playwright suite
+- replace the migration-era Playwright suite
 - run `terraform apply`
 - create AWS resources
 - change Terraform
@@ -852,3 +853,21 @@ PR 10 should not:
 - run `terraform apply`
 - create AWS resources
 - add auth or other non-MVP scope
+
+## ASP.NET Core Architecture For PR 11
+
+The backend removal branch should add:
+
+- deletion of the legacy Node.js/Express backend implementation
+- removal of migration-only Playwright configs and scripts
+- CI cleanup so only the ASP.NET Core backend is installed and exercised
+- documentation updates showing ASP.NET Core as the current backend
+- preservation of mobile local-first behavior and Terraform infrastructure
+
+PR 11 should not:
+
+- change the mobile product scope
+- change Terraform resources
+- run `terraform apply`
+- create AWS resources
+- add a replacement technology for the removed backend

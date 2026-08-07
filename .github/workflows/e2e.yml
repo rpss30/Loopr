@@ -25,10 +25,6 @@ jobs:
       - name: Install root dependencies
         run: npm ci
 
-      - name: Install backend dependencies
-        run: npm ci
-        working-directory: backend
-
       - name: Install mobile dependencies
         run: npm ci
         working-directory: mobile
@@ -39,30 +35,8 @@ jobs:
       - name: Verify ASP.NET Core Docker image
         run: npm run dotnet:docker:verify
 
-      - name: Run ASP.NET Core API E2E
-        run: npm run e2e:dotnet
-
-      - name: Run Expo web with ASP.NET Core API E2E
-        run: npm run e2e:dotnet-mobile
-
       - name: Run Playwright E2E
         run: npm run e2e
-
-      - name: Upload ASP.NET Core Playwright report
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: playwright-report-dotnet
-          path: playwright-report-dotnet/
-          retention-days: 7
-
-      - name: Upload Expo web with ASP.NET Core Playwright report
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: playwright-report-dotnet-mobile
-          path: playwright-report-dotnet-mobile/
-          retention-days: 7
 
       - name: Upload Playwright report
         if: failure()
