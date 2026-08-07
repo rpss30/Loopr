@@ -116,6 +116,14 @@ POST /api/v1/audio/upload-url
 
 The REST endpoints use in-memory repositories by default and preserve the current Node backend response envelopes, validation bounds, default BPM behavior, track metadata defaults, S3 upload URL envelope, and structured error codes.
 
+The test environment also exposes:
+
+```text
+POST /api/v1/e2e/reset
+```
+
+This route is only mapped when `ASPNETCORE_ENVIRONMENT=Test`.
+
 ## Configuration
 
 Current ASP.NET Core configuration:

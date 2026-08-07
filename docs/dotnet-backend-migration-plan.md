@@ -649,12 +649,13 @@ GET  /api/v1/tracks
 POST /api/v1/tracks
 GET  /api/v1/tracks/{trackId}
 POST /api/v1/audio/upload-url
+POST /api/v1/e2e/reset
 ```
 
-The ASP.NET Core backend does not yet implement:
+Remaining migration work:
 
 ```text
-POST /api/v1/e2e/reset
+mobile cutover to the ASP.NET Core service
 ```
 
 ## Expected Files For PR 1
@@ -755,6 +756,24 @@ PR 5 should not:
 - run `terraform apply`
 - create AWS resources
 - upload audio bytes
+- point the React Native app at ASP.NET Core
+- change Terraform
+- remove the Node backend
+
+## ASP.NET Core Architecture For PR 6
+
+The test reset branch should add:
+
+- `POST /api/v1/e2e/reset` when `ASPNETCORE_ENVIRONMENT=Test`
+- reset ordering that matches the current backend: tracks, sessions, then projects
+- integration coverage proving the route clears in-memory state in Test
+- integration coverage proving the route is not available outside Test
+
+PR 6 should not:
+
+- expose reset behavior in Development or Production
+- run `terraform apply`
+- create AWS resources
 - point the React Native app at ASP.NET Core
 - change Terraform
 - remove the Node backend

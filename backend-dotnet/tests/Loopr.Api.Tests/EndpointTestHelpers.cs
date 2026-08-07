@@ -50,4 +50,36 @@ internal static class EndpointTestHelpers
 
         return body.GetProperty("session").Clone();
     }
+
+    public static async Task<JsonElement> CreateTrackAsync(
+        HttpClient client,
+        string projectId,
+        string sessionId,
+        string name = "Guitar Layer"
+    )
+    {
+        var response = await client.PostAsJsonAsync(
+            "/api/v1/tracks",
+            new
+            {
+                projectId,
+                sessionId,
+                name,
+                durationMs = 12_000,
+                volume = 0.75,
+                isMuted = false,
+                s3Bucket = "loopr-audio-local",
+                s3Key = $"projects/{projectId}/sessions/{sessionId}/tracks/track-1.m4a",
+                contentType = "audio/mp4",
+            },
+            CancellationToken.None
+        );
+        response.EnsureSuccessStatusCode();
+
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>(
+            cancellationToken: CancellationToken.None
+        );
+
+        return body.GetProperty("track").Clone();
+    }
 }
