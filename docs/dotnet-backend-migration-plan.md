@@ -634,6 +634,28 @@ The existing API can remain contract-compatible for the planned migration. The A
 
 The only planned compatible enhancement is adding `traceId` to structured error responses while keeping the existing `error.code` and `error.message` fields.
 
+The ASP.NET Core backend now implements parity for:
+
+```text
+GET  /health
+GET  /api/v1/projects
+POST /api/v1/projects
+GET  /api/v1/projects/{projectId}
+GET  /api/v1/sessions
+POST /api/v1/sessions
+GET  /api/v1/sessions/{sessionId}
+GET  /api/v1/tracks
+POST /api/v1/tracks
+GET  /api/v1/tracks/{trackId}
+```
+
+The ASP.NET Core backend does not yet implement:
+
+```text
+POST /api/v1/audio/upload-url
+POST /api/v1/e2e/reset
+```
+
 ## Expected Files For PR 1
 
 Expected additions:
@@ -673,5 +695,25 @@ PR 2 should not:
 - add DynamoDB repositories
 - add S3 presigning
 - change the React Native app
+- change Terraform
+- remove the Node backend
+
+## ASP.NET Core Architecture For PR 3
+
+The API parity branch should add:
+
+- project route parity against repository abstractions
+- session route parity with project existence checks
+- track metadata route parity with project/session existence checks
+- request DTO validation matching current Zod bounds
+- response envelopes matching the current mobile API client expectations
+- structured error codes for not-found, validation, and session/project mismatch cases
+- integration tests for list, create, get, defaults, validation, and missing-resource behavior
+
+PR 3 should not:
+
+- add S3 presigned upload generation
+- add DynamoDB repositories
+- point the React Native app at ASP.NET Core
 - change Terraform
 - remove the Node backend
