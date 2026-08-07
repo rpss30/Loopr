@@ -6,6 +6,10 @@ node_modules/
 dist/
 **/dist/
 web-build/
+bin/
+obj/
+**/bin/
+**/obj/
 
 # test output
 coverage/
