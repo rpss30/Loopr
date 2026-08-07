@@ -574,7 +574,8 @@ Initial structure:
 
 ```text
 backend-dotnet/
-  Loopr.sln
+  Loopr.slnx
+  global.json
   README.md
   Directory.Build.props
   src/
@@ -637,7 +638,8 @@ Expected additions:
 
 ```text
 backend-dotnet/Directory.Build.props
-backend-dotnet/Loopr.sln
+backend-dotnet/Loopr.slnx
+backend-dotnet/global.json
 backend-dotnet/README.md
 backend-dotnet/src/Loopr.Api/...
 backend-dotnet/tests/Loopr.Api.Tests/...
