@@ -549,6 +549,7 @@ Backend tests currently cover:
 - session routes and validation
 - track routes and validation
 - audio upload route validation and service error handling
+- ASP.NET Core API E2E validation through Playwright request tests
 - environment parsing
 - S3 client config
 - S3 object key generation
@@ -775,5 +776,23 @@ PR 6 should not:
 - run `terraform apply`
 - create AWS resources
 - point the React Native app at ASP.NET Core
+- change Terraform
+- remove the Node backend
+
+## ASP.NET Core Architecture For PR 7
+
+The API E2E validation branch should add:
+
+- a separate Playwright config for ASP.NET Core API-only checks
+- a root script that starts `backend-dotnet` in Test with memory persistence
+- API E2E coverage for project/session/track metadata, presigned upload URL coordination, validation errors, and reset cleanup
+- GitHub Actions coverage for the ASP.NET Core API E2E suite without changing the existing Node/Expo E2E suite
+
+PR 7 should not:
+
+- point the React Native app at ASP.NET Core
+- replace the current Node/Expo Playwright suite
+- run `terraform apply`
+- create AWS resources
 - change Terraform
 - remove the Node backend

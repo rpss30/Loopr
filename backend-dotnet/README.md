@@ -94,6 +94,15 @@ OpenAPI document in development:
 curl http://localhost:5101/openapi/v1.json
 ```
 
+Run the ASP.NET Core API E2E checks from the repo root:
+
+```bash
+cd /Users/rishavpreetsingh/Documents/Projects/loopr
+npm run e2e:dotnet
+```
+
+This starts `backend-dotnet` on `http://127.0.0.1:5102` with `ASPNETCORE_ENVIRONMENT=Test`, memory persistence, and fake AWS credentials for local presigned URL generation. It does not contact real AWS services.
+
 ## Current API Surface
 
 ```text

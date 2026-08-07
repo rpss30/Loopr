@@ -15,6 +15,7 @@ obj/
 coverage/
 **/coverage/
 playwright-report/
+playwright-report-dotnet/
 test-results/
 
 # caches
