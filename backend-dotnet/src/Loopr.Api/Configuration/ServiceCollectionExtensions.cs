@@ -73,6 +73,8 @@ public static class ServiceCollectionExtensions
 
         AddRepositories(services, ResolvePersistenceDriver(configuration));
         services.AddScoped<ProjectService>();
+        services.AddScoped<SessionService>();
+        services.AddScoped<TrackService>();
 
         return services;
     }
