@@ -451,7 +451,7 @@ Current implementations:
 
 `PERSISTENCE_DRIVER=memory` selects singleton in-memory repositories. `PERSISTENCE_DRIVER=dynamodb` selects DynamoDB repositories backed by the configured metadata table.
 
-The ASP.NET Core migration now has equivalent domain records, repository interfaces, configurable in-memory repositories, and reusable repository contract tests. DynamoDB repository implementations remain future work.
+The ASP.NET Core migration now has equivalent domain records, repository interfaces, configurable in-memory repositories, DynamoDB repository implementations, and reusable repository contract tests across both persistence drivers.
 
 ## DynamoDB Table Usage
 
@@ -511,8 +511,9 @@ Current DynamoDB notes:
 - Session-by-project and tracks-by-session helpers use `pk` plus `begins_with(sk, ...)`.
 - Creates use conditional writes to avoid overwriting existing keys.
 - DynamoDB repository `reset` methods intentionally throw.
+- .NET tests use a fake metadata store and do not require real AWS credentials, DynamoDB Local, or Terraform-applied resources.
 
-The ASP.NET Core DynamoDB implementation should preserve this table schema unless a future branch explicitly documents a migration.
+The ASP.NET Core DynamoDB implementation preserves this table schema unless a future branch explicitly documents a migration.
 
 ## S3 Audio Behavior
 
@@ -714,6 +715,26 @@ PR 3 should not:
 
 - add S3 presigned upload generation
 - add DynamoDB repositories
+- point the React Native app at ASP.NET Core
+- change Terraform
+- remove the Node backend
+
+## ASP.NET Core Architecture For PR 4
+
+The DynamoDB persistence branch should add:
+
+- AWS SDK for .NET DynamoDB client configuration
+- typed DynamoDB options with the existing `AWS_REGION`, `DYNAMODB_METADATA_TABLE_NAME`, and `DYNAMODB_ENDPOINT` environment variable names
+- DynamoDB repositories for project, session, and track metadata
+- the existing table key shape, `gsi1`, and `gsi2` access patterns
+- repository contract coverage for memory and DynamoDB implementations
+- fake DynamoDB metadata store tests that avoid live AWS resources
+
+PR 4 should not:
+
+- run `terraform apply`
+- create AWS resources
+- add S3 presigned upload generation
 - point the React Native app at ASP.NET Core
 - change Terraform
 - remove the Node backend
