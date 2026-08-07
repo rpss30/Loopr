@@ -137,29 +137,13 @@ This supports durable track metadata while keeping audio bytes in S3.
 
 ## Current limitations
 
-- Track metadata is not connected to the presigned upload route yet.
 - The backend does not confirm that the S3 object was actually uploaded.
 - Project/session track counts are not updated yet.
-- No mobile integration yet.
 - No auth or user ownership yet.
-
-## Recommended next backend step
-
-Connect track metadata more directly to the upload flow.
-
-A practical next step is to add a route or service flow that:
-
-```text
-request upload URL
-upload audio to S3
-save track metadata with s3Bucket and s3Key
-```
-
-After that, connect the mobile app to the local backend.
 
 ## Local DynamoDB verification
 
-The backend DynamoDB Local verification script now covers:
+The .NET repository contract tests cover:
 
 ```text
 project create/get/list
@@ -168,14 +152,8 @@ track create/get/list
 tracks-by-session query
 ```
 
-Run it from `backend` after starting DynamoDB Local and creating the local table:
+Run them from `backend-dotnet`:
 
 ```bash
-npm run dynamodb:verify:local
-```
-
-Expected output includes:
-
-```text
-Verified DynamoDB Local repository flow.
+dotnet test Loopr.slnx
 ```

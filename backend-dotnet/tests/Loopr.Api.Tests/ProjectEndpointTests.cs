@@ -24,7 +24,7 @@ public sealed class ProjectEndpointTests(ApiTestFactory factory) : IClassFixture
     }
 
     [Fact]
-    public async Task CreateProjectReturnsNodeCompatibleProjectEnvelope()
+    public async Task CreateProjectReturnsProjectEnvelope()
     {
         await factory.ResetRepositoriesAsync();
         using var client = factory.CreateClient();

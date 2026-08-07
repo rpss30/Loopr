@@ -24,7 +24,7 @@ public sealed class SessionEndpointTests(ApiTestFactory factory) : IClassFixture
     }
 
     [Fact]
-    public async Task CreateSessionReturnsNodeCompatibleSessionEnvelope()
+    public async Task CreateSessionReturnsSessionEnvelope()
     {
         await factory.ResetRepositoriesAsync();
         using var client = factory.CreateClient();

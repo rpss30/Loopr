@@ -8,8 +8,8 @@ Loopr needs a cloud metadata store for backend data such as:
 
 - Projects
 - Saved loop sessions
-- Future track metadata
-- Future S3 audio object references
+- Track metadata
+- S3 audio object references
 
 This branch adds Terraform for the DynamoDB metadata table only. It does not deploy the backend, upload audio to S3, or add queues/Lambda yet.
 
@@ -84,7 +84,7 @@ AWS_REGION=<region>
 DYNAMODB_METADATA_TABLE_NAME=<table-name>
 ```
 
-The backend already has a `PERSISTENCE_DRIVER` setting and DynamoDB repository implementations. This Terraform branch prepares the matching AWS table, but does not deploy or run the backend against AWS yet.
+The ASP.NET Core backend has a `PERSISTENCE_DRIVER` setting and DynamoDB repository implementations. This Terraform configuration prepares the matching AWS table, but does not deploy or run the backend against AWS by itself.
 
 ## Validation commands
 

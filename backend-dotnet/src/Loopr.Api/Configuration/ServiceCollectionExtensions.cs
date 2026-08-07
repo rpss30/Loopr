@@ -88,11 +88,11 @@ public static class ServiceCollectionExtensions
             .Bind(configuration.GetSection(PersistenceOptions.SectionName))
             .Configure(options =>
             {
-                var legacyDriver = configuration["PERSISTENCE_DRIVER"];
+                var flatDriver = configuration["PERSISTENCE_DRIVER"];
 
-                if (!string.IsNullOrWhiteSpace(legacyDriver))
+                if (!string.IsNullOrWhiteSpace(flatDriver))
                 {
-                    options.Driver = legacyDriver;
+                    options.Driver = flatDriver;
                 }
             })
             .ValidateDataAnnotations()

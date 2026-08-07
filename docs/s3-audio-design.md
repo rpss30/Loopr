@@ -173,7 +173,7 @@ Do not run `terraform apply` unless that is an explicit project decision.
 
 - The configured S3 bucket may not exist yet.
 - Terraform has been validated, but no real AWS resources have been created yet.
-- Mobile upload integration depends on a working S3-compatible upload target.
+- Real mobile uploads require a working S3-compatible upload target.
 - The backend does not yet verify project/session/track ownership before signing uploads.
 - There is no authentication or user ownership model yet.
 - There are no download/stream URLs yet.

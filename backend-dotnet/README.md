@@ -1,8 +1,8 @@
 # Loopr ASP.NET Core Backend
 
-This folder contains the ASP.NET Core backend migration for Loopr.
+This folder contains Loopr's ASP.NET Core backend.
 
-The ASP.NET Core API is now the default local backend target for the mobile app. The Node.js/Express backend in `backend/` remains temporarily until the migration is complete and the old backend can be removed safely.
+The ASP.NET Core API is the default local backend target for the mobile app. The previous Node.js/Express backend has been removed after API parity, automated E2E validation, Docker validation, and manual Expo Go validation against the ASP.NET Core service.
 
 ## Current Status
 
@@ -12,7 +12,7 @@ The current ASP.NET Core backend provides:
 - controller-based HTTP foundation
 - dependency injection setup
 - strongly typed Loopr API options
-- `GET /health` compatibility with the current Node backend
+- `GET /health`
 - structured error response foundation
 - OpenAPI document in development
 - xUnit integration tests with `WebApplicationFactory`
@@ -27,11 +27,6 @@ The current ASP.NET Core backend provides:
 - S3 presigned upload URL parity
 - multi-stage Docker production image
 - mobile default local API target
-
-It does not yet include:
-
-- native/device cutover validation
-- Node backend removal
 
 ## Requirements
 
@@ -175,7 +170,7 @@ GET  /api/v1/tracks/{trackId}
 POST /api/v1/audio/upload-url
 ```
 
-The REST endpoints use in-memory repositories by default and preserve the current Node backend response envelopes, validation bounds, default BPM behavior, track metadata defaults, S3 upload URL envelope, and structured error codes.
+The REST endpoints use in-memory repositories by default and preserve the mobile-compatible response envelopes, validation bounds, default BPM behavior, track metadata defaults, S3 upload URL envelope, and structured error codes.
 
 The test environment also exposes:
 
@@ -223,7 +218,7 @@ S3__AudioBucketName=loopr-audio-local
 S3__PresignedUploadExpiresSeconds=900
 ```
 
-The current repository layer also accepts existing Node backend environment variable names:
+The current repository layer also accepts flat environment variable names used by local scripts, Docker, and Terraform outputs:
 
 ```bash
 PERSISTENCE_DRIVER=memory
@@ -246,8 +241,6 @@ dotnet run --project src/Loopr.Api
 
 The DynamoDB repositories preserve the existing Terraform table shape and intentionally do not support `ResetAsync`.
 
-## Migration Boundary
+## Current Boundary
 
-Expo web project creation has been validated against ASP.NET Core, and the mobile app now defaults to the ASP.NET Core local API port. Native/device cutover validation still needs manual QA before removing the Node backend.
-
-The next migration branch should remove the Node backend only after native/device validation confirms the ASP.NET Core backend preserves the mobile flows.
+Expo web project creation and physical Expo Go backend sync have been validated against ASP.NET Core. The backend still defaults to local memory persistence unless `PERSISTENCE_DRIVER=dynamodb` is configured. Real S3 uploads require a configured S3-compatible target or AWS bucket; no Terraform apply is part of normal local development.

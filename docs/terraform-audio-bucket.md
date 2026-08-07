@@ -71,5 +71,4 @@ The backend already has `S3_AUDIO_BUCKET_NAME` config from the S3 audio design b
 - Terraform is validated only.
 - No `terraform apply` is run in this branch.
 - No real S3 bucket is created yet.
-- No presigned URL generation is implemented yet.
-- No mobile upload integration is implemented yet.
+- Presigned URL generation and mobile upload coordination exist, but real uploads require a configured S3-compatible target.
