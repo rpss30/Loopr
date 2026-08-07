@@ -9,6 +9,7 @@ builder.Services.AddLooprApiFoundation(builder.Configuration);
 var app = builder.Build();
 
 app.UseMiddleware<ApiExceptionHandlingMiddleware>();
+app.UseCors(LooprCorsPolicy.Name);
 
 if (app.Environment.IsDevelopment())
 {

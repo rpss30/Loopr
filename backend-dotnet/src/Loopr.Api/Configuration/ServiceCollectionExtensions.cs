@@ -25,6 +25,20 @@ public static class ServiceCollectionExtensions
             });
         services.AddOpenApi();
         services.AddHealthChecks();
+        var corsOptions = BuildCorsOptions(configuration);
+        services.AddCors(options =>
+        {
+            options.AddPolicy(
+                LooprCorsPolicy.Name,
+                policy =>
+                {
+                    policy
+                        .WithOrigins(corsOptions.AllowedOrigins.ToArray())
+                        .AllowAnyHeader()
+                        .AllowAnyMethod();
+                }
+            );
+        });
         services.Configure<ApiBehaviorOptions>(options =>
         {
             options.InvalidModelStateResponseFactory = context =>
@@ -56,6 +70,17 @@ public static class ServiceCollectionExtensions
             .AddOptions<LooprApiOptions>()
             .Bind(configuration.GetSection(LooprApiOptions.SectionName))
             .ValidateDataAnnotations()
+            .ValidateOnStart();
+
+        services
+            .AddOptions<LooprCorsOptions>()
+            .Bind(configuration.GetSection(LooprCorsOptions.SectionName))
+            .Configure(options =>
+            {
+                ApplyCorsEnvironmentOverrides(configuration, options);
+            })
+            .ValidateDataAnnotations()
+            .Validate(options => options.AllowedOrigins.All(origin => Uri.IsWellFormedUriString(origin, UriKind.Absolute)))
             .ValidateOnStart();
 
         services
@@ -136,6 +161,32 @@ public static class ServiceCollectionExtensions
         return configuration["PERSISTENCE_DRIVER"]
             ?? configuration[$"{PersistenceOptions.SectionName}:Driver"]
             ?? PersistenceDrivers.Memory;
+    }
+
+    private static LooprCorsOptions BuildCorsOptions(IConfiguration configuration)
+    {
+        var options = new LooprCorsOptions();
+        configuration.GetSection(LooprCorsOptions.SectionName).Bind(options);
+        ApplyCorsEnvironmentOverrides(configuration, options);
+
+        return options;
+    }
+
+    public static void ApplyCorsEnvironmentOverrides(
+        IConfiguration configuration,
+        LooprCorsOptions options
+    )
+    {
+        var allowedOrigins = configuration["CORS_ALLOWED_ORIGINS"];
+
+        if (string.IsNullOrWhiteSpace(allowedOrigins))
+        {
+            return;
+        }
+
+        options.AllowedOrigins = allowedOrigins
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .ToList();
     }
 
     private static void ApplyDynamoDbEnvironmentOverrides(
