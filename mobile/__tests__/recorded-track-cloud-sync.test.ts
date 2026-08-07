@@ -1,4 +1,7 @@
-import { syncRecordedTrackToCloud } from '@/services/recorded-track-cloud-sync';
+import {
+  getTrackCloudSyncStatusForResult,
+  syncRecordedTrackToCloud,
+} from '@/services/recorded-track-cloud-sync';
 
 function createMockUploadApi() {
   return {
@@ -182,5 +185,53 @@ describe('syncRecordedTrackToCloud', () => {
     expect(uploadApi.createUploadUrl).not.toHaveBeenCalled();
     expect(uploadAudioFile).not.toHaveBeenCalled();
     expect(tracksApi.createTrack).not.toHaveBeenCalled();
+  });
+
+  it('maps sync results to local track sync status labels', () => {
+    expect(
+      getTrackCloudSyncStatusForResult({
+        status: 'synced',
+        upload: {
+          uploadUrl: 'https://example-presigned-url',
+          method: 'PUT',
+          s3Bucket: 'loopr-audio-local',
+          s3Key: 'projects/project-1/sessions/session-1/tracks/track-1.m4a',
+          contentType: 'audio/mp4',
+          expiresInSeconds: 900,
+        },
+        uploadResult: {
+          status: 200,
+        },
+        track: {
+          id: 'backend-track-1',
+          projectId: 'project-1',
+          sessionId: 'session-1',
+          name: 'Track 1',
+          durationMs: 12000,
+          volume: 1,
+          isMuted: false,
+          s3Bucket: 'loopr-audio-local',
+          s3Key: 'projects/project-1/sessions/session-1/tracks/track-1.m4a',
+          contentType: 'audio/mp4',
+          createdAt: '2026-01-01T00:00:00.000Z',
+          updatedAt: '2026-01-01T00:00:00.000Z',
+        },
+      })
+    ).toBe('synced');
+
+    expect(
+      getTrackCloudSyncStatusForResult({
+        status: 'skipped',
+        reason: 'missing-backend-session',
+      })
+    ).toBe('local-only');
+
+    expect(
+      getTrackCloudSyncStatusForResult({
+        status: 'failed',
+        reason: 'audio-upload-failed',
+        error: new Error('upload failed'),
+      })
+    ).toBe('sync-failed');
   });
 });
