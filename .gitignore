@@ -16,6 +16,7 @@ coverage/
 **/coverage/
 playwright-report/
 playwright-report-dotnet/
+playwright-report-dotnet-mobile/
 test-results/
 
 # caches

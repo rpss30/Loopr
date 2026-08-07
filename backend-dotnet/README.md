@@ -103,6 +103,15 @@ npm run e2e:dotnet
 
 This starts `backend-dotnet` on `http://127.0.0.1:5102` with `ASPNETCORE_ENVIRONMENT=Test`, memory persistence, and fake AWS credentials for local presigned URL generation. It does not contact real AWS services.
 
+Run the Expo web project-flow validation against ASP.NET Core:
+
+```bash
+cd /Users/rishavpreetsingh/Documents/Projects/loopr
+npm run e2e:dotnet-mobile
+```
+
+This starts `backend-dotnet` on `http://127.0.0.1:5102` and Expo web on `http://127.0.0.1:8083`. It validates project creation and persistence through the mobile app shell without changing the app's default backend target.
+
 ## Current API Surface
 
 ```text
@@ -178,6 +187,7 @@ PERSISTENCE_DRIVER=memory
 AWS_REGION=us-west-2
 DYNAMODB_METADATA_TABLE_NAME=loopr-metadata
 DYNAMODB_ENDPOINT=
+CORS_ALLOWED_ORIGINS=http://127.0.0.1:8082,http://localhost:8082
 S3_AUDIO_BUCKET_NAME=loopr-audio-local
 S3_PRESIGNED_UPLOAD_EXPIRES_SECONDS=900
 ```
