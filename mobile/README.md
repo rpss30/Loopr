@@ -58,6 +58,14 @@ EXPO_PUBLIC_LOOPR_API_BASE_URL=http://192.168.1.10:5101 npx expo start
 
 Replace `192.168.1.10` with your Mac's local IP address.
 
+If the app still shows backend sync as unavailable after the backend health check works from your Mac, stop Expo and restart it with:
+
+```bash
+EXPO_PUBLIC_LOOPR_API_BASE_URL=http://192.168.1.10:5101 npx expo start -c
+```
+
+Expo bundles public environment variables into the app code, so a stale Metro bundle can keep using an older API URL until the cache is cleared.
+
 The current client layer supports:
 
 ```text
