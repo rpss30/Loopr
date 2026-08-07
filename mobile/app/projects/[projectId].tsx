@@ -5,13 +5,14 @@ import { useEffect, useRef, useState } from 'react';
 import {
   Alert,
   Animated,
+  Platform,
   Pressable,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useProjects } from '../../features/projects/project-store';
 import { deleteLocalAudioFile } from '../../features/tracks/audio-file-cleanup';
@@ -762,7 +763,6 @@ export default function LoopWorkspaceScreen() {
 
       {syncToastText ? (
         <Animated.View
-          pointerEvents="none"
           style={[
             styles.toastOverlay,
             {
@@ -978,20 +978,28 @@ const styles = StyleSheet.create({
     left: 16,
     right: 16,
     zIndex: 20,
+    pointerEvents: 'none',
     backgroundColor: '#172554',
     borderRadius: 999,
     paddingHorizontal: 16,
     paddingVertical: 11,
     borderWidth: 1,
     borderColor: '#1D4ED8',
-    shadowColor: '#000000',
-    shadowOpacity: 0.25,
-    shadowRadius: 12,
-    shadowOffset: {
-      width: 0,
-      height: 6,
-    },
-    elevation: 8,
+    ...Platform.select({
+      web: {
+        boxShadow: '0px 6px 12px rgba(0, 0, 0, 0.25)',
+      },
+      default: {
+        shadowColor: '#000000',
+        shadowOpacity: 0.25,
+        shadowRadius: 12,
+        shadowOffset: {
+          width: 0,
+          height: 6,
+        },
+        elevation: 8,
+      },
+    }),
   },
   toastText: {
     color: '#BFDBFE',

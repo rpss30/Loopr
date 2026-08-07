@@ -1,5 +1,6 @@
 import { router } from 'expo-router';
-import { Alert, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useProjects } from '../features/projects/project-store';
 import { deleteLocalAudioFile } from '../features/tracks/audio-file-cleanup';
