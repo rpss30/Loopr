@@ -6,7 +6,7 @@ The Node.js/Express backend in `backend/` is still the active backend until the 
 
 ## Current Status
 
-This first checkpoint provides:
+The current ASP.NET Core backend provides:
 
 - .NET 10 ASP.NET Core Web API project
 - controller-based HTTP foundation
@@ -16,6 +16,10 @@ This first checkpoint provides:
 - structured error response foundation
 - OpenAPI document in development
 - xUnit integration tests with `WebApplicationFactory`
+- domain records for project, session, and track metadata
+- repository interfaces for project, session, and track persistence
+- configurable in-memory repository implementations
+- repository contract tests that can be reused for future DynamoDB implementations
 
 It does not yet include:
 
@@ -96,6 +100,9 @@ Current ASP.NET Core configuration:
 {
   "Loopr": {
     "ServiceName": "loopr-api"
+  },
+  "Persistence": {
+    "Driver": "memory"
   }
 }
 ```
@@ -104,12 +111,20 @@ Environment variable equivalent:
 
 ```bash
 Loopr__ServiceName=loopr-api
+Persistence__Driver=memory
 ```
 
-Future branches should add typed options for persistence and AWS settings while preserving the existing Node environment names where practical:
+The current repository layer also accepts the existing Node backend environment variable name:
+
+```bash
+PERSISTENCE_DRIVER=memory
+```
+
+`dynamodb` is reserved for a future branch and intentionally fails fast in this ASP.NET Core implementation until DynamoDB repositories are added.
+
+Future branches should add typed options for AWS settings while preserving the existing Node environment names where practical:
 
 ```text
-PERSISTENCE_DRIVER
 AWS_REGION
 DYNAMODB_METADATA_TABLE_NAME
 DYNAMODB_ENDPOINT
@@ -119,6 +134,6 @@ S3_PRESIGNED_UPLOAD_EXPIRES_SECONDS
 
 ## Migration Boundary
 
-Do not point the React Native app at this backend yet. The current ASP.NET Core service only proves the foundation and health contract.
+Do not point the React Native app at this backend yet. The current ASP.NET Core service only proves the foundation, health contract, and repository layer.
 
-The next migration branch should add domain models, repository interfaces, in-memory repositories, and repository contract tests without touching DynamoDB or S3 yet.
+The next migration branch should add project/session/track REST endpoint parity against the repository abstractions without touching DynamoDB or S3 yet.

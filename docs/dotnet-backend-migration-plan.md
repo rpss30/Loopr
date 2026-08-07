@@ -451,6 +451,8 @@ Current implementations:
 
 `PERSISTENCE_DRIVER=memory` selects singleton in-memory repositories. `PERSISTENCE_DRIVER=dynamodb` selects DynamoDB repositories backed by the configured metadata table.
 
+The ASP.NET Core migration now has equivalent domain records, repository interfaces, configurable in-memory repositories, and reusable repository contract tests. DynamoDB repository implementations remain future work.
+
 ## DynamoDB Table Usage
 
 Terraform defines one metadata table with:
@@ -584,7 +586,7 @@ backend-dotnet/
     Loopr.Api.Tests/
 ```
 
-PR 1 should establish:
+PR 1 established:
 
 - ASP.NET Core Web API targeting `net10.0`.
 - Nullable reference types.
@@ -597,7 +599,7 @@ PR 1 should establish:
 - Integration tests using xUnit and `WebApplicationFactory`.
 - Local development documentation.
 
-PR 1 should not:
+PR 1 did not:
 
 - migrate project/session/track endpoints
 - migrate DynamoDB repositories
@@ -653,3 +655,23 @@ Expected modifications:
 ```
 
 No mobile, Terraform, or Node backend behavior changes are expected in PR 1.
+
+## ASP.NET Core Architecture For PR 2
+
+The repository-layer branch should add:
+
+- domain records for project, session, and track metadata
+- repository interfaces for project, session, and track persistence
+- in-memory repository implementations
+- configuration-based repository selection with `memory` as the active driver
+- support for the existing `PERSISTENCE_DRIVER` environment variable name
+- reusable repository contract tests
+
+PR 2 should not:
+
+- add project/session/track HTTP endpoints
+- add DynamoDB repositories
+- add S3 presigning
+- change the React Native app
+- change Terraform
+- remove the Node backend
