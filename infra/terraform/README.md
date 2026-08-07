@@ -2,17 +2,18 @@
 
 Terraform configuration for Loopr AWS infrastructure.
 
-This folder currently defines the DynamoDB metadata table used by the backend for project and session metadata. Audio storage, queues, Lambda functions, backend deployment, and CI/CD infrastructure will be added later.
+This folder defines the DynamoDB metadata table used by the backend for project, session, and track metadata, plus the S3 bucket intended for recorded audio objects. Backend deployment infrastructure is not included yet.
 
 ## Current resources
 
 - DynamoDB metadata table
+- S3 audio bucket
 - Primary key:
   - `pk`
   - `sk`
 - Global secondary indexes:
   - `gsi1` for listing projects
-  - `gsi2` for looking up sessions
+  - `gsi2` for looking up sessions and tracks
 
 ## Local setup
 
@@ -47,28 +48,29 @@ Example plan command:
 terraform plan -var-file=environments/dev.tfvars
 ```
 
-## Backend environment outputs
+## Backend Environment Outputs
 
-The Terraform output `backend_env` provides the backend variables needed for DynamoDB persistence:
+The Terraform output `backend_env` provides the backend variables needed for DynamoDB metadata persistence and S3 upload coordination:
 
 ```bash
 PERSISTENCE_DRIVER=dynamodb
 AWS_REGION=<region>
 DYNAMODB_METADATA_TABLE_NAME=<table-name>
+S3_AUDIO_BUCKET_NAME=<bucket-name>
 ```
 
-The backend currently defaults to in-memory persistence locally. DynamoDB mode should only be used after the table exists and AWS credentials are configured.
+The backend currently defaults to in-memory persistence locally. DynamoDB mode and real S3 uploads should only be used after the infrastructure exists and AWS credentials are configured.
 
 ## Current limitations
+
 - No remote Terraform backend yet.
-- No S3 audio bucket yet.
 - No SQS/Lambda infrastructure yet.
 - No backend deployment infrastructure yet.
-- No CI/CD pipeline yet.
+- No infrastructure deployment pipeline yet.
 
-## Audio bucket
+## Audio Bucket
 
-Terraform also defines the future S3 bucket for Loopr audio files.
+Terraform defines the S3 bucket for Loopr audio files.
 
 The bucket is intended to store recorded track audio using this object key shape:
 
@@ -108,4 +110,4 @@ DYNAMODB_METADATA_TABLE_NAME
 S3_AUDIO_BUCKET_NAME
 ```
 
-This branch only validates Terraform configuration. Do not run `terraform apply` until we are ready to create real AWS resources.
+This configuration has only been formatted and validated. Do not run `terraform apply` until creating real AWS resources is an intentional project decision.

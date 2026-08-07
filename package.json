@@ -1,7 +1,7 @@
 {
   "name": "loopr",
   "version": "1.0.0",
-  "description": "",
+  "description": "Loopr portfolio monorepo for a local-first Expo audio app and ASP.NET Core backend.",
   "private": true,
   "directories": {
     "doc": "docs"
@@ -17,7 +17,14 @@
     "type": "git",
     "url": "git+https://github.com/rpss30/loopr.git"
   },
-  "keywords": [],
+  "keywords": [
+    "react-native",
+    "expo",
+    "aspnet-core",
+    "dynamodb",
+    "terraform",
+    "playwright"
+  ],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
