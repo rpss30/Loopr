@@ -1,49 +1,52 @@
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { ProjectProvider } from '../features/projects/project-store';
 import { TrackProvider } from '../features/tracks/track-store';
 
 export default function RootLayout() {
   return (
-    <ProjectProvider>
-      <TrackProvider>
-        <Stack
-          screenOptions={{
-            headerStyle: {
-              backgroundColor: '#111827',
-            },
-            headerTintColor: '#F9FAFB',
-            headerTitleStyle: {
-              fontWeight: '700',
-            },
-            contentStyle: {
-              backgroundColor: '#0F172A',
-            },
-          }}
-        >
-          <Stack.Screen
-            name="index"
-            options={{
-              title: 'Loopr',
+    <SafeAreaProvider>
+      <ProjectProvider>
+        <TrackProvider>
+          <Stack
+            screenOptions={{
+              headerStyle: {
+                backgroundColor: '#111827',
+              },
+              headerTintColor: '#F9FAFB',
+              headerTitleStyle: {
+                fontWeight: '700',
+              },
+              contentStyle: {
+                backgroundColor: '#0F172A',
+              },
             }}
-          />
-          <Stack.Screen
-            name="create-project"
-            options={{
-              title: 'Create Project',
-            }}
-          />
-          <Stack.Screen
-            name="projects/[projectId]"
-            options={{
-              title: 'Loop Workspace',
-            }}
-          />
-        </Stack>
+          >
+            <Stack.Screen
+              name="index"
+              options={{
+                title: 'Loopr',
+              }}
+            />
+            <Stack.Screen
+              name="create-project"
+              options={{
+                title: 'Create Project',
+              }}
+            />
+            <Stack.Screen
+              name="projects/[projectId]"
+              options={{
+                title: 'Loop Workspace',
+              }}
+            />
+          </Stack>
 
-        <StatusBar style="light" />
-      </TrackProvider>
-    </ProjectProvider>
+          <StatusBar style="light" />
+        </TrackProvider>
+      </ProjectProvider>
+    </SafeAreaProvider>
   );
 }
