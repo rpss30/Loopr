@@ -26,7 +26,7 @@ infra/terraform/
   backend environment outputs
 ```
 
-The React Native app currently points to a configurable REST API base URL through `EXPO_PUBLIC_LOOPR_API_BASE_URL`.
+The React Native app points to a configurable REST API base URL through `EXPO_PUBLIC_LOOPR_API_BASE_URL` and now defaults to the ASP.NET Core local API on `http://localhost:5101`.
 
 ## Current Test Baseline
 
@@ -657,7 +657,8 @@ POST /api/v1/e2e/reset
 Remaining migration work:
 
 ```text
-mobile cutover to the ASP.NET Core service
+native/device validation against ASP.NET Core
+Node backend removal
 ```
 
 ## Expected Files For PR 1
@@ -834,3 +835,20 @@ PR 9 should not:
 - create AWS resources
 - change Terraform
 - remove the Node backend
+
+## ASP.NET Core Architecture For PR 10
+
+The mobile integration branch should add:
+
+- mobile default API configuration pointing to the ASP.NET Core local development port
+- updated mobile API client tests for the new default
+- manual Expo Go QA documentation for ASP.NET Core local startup
+- migration documentation showing that Node removal is still a later branch
+
+PR 10 should not:
+
+- remove the Node backend
+- change the mobile local-first fallback behavior
+- run `terraform apply`
+- create AWS resources
+- add auth or other non-MVP scope

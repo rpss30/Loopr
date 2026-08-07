@@ -50,16 +50,18 @@ Reason: Expo web recording uses browser `MediaRecorder` and creates `blob:` URLs
 
 ## Manual Expo Go QA
 
-Start the backend:
+Start the ASP.NET Core backend:
 
 ```bash
-cd /Users/rishavpreetsingh/Documents/Projects/loopr/backend
+cd /Users/rishavpreetsingh/Documents/Projects/loopr/backend-dotnet
 
 PERSISTENCE_DRIVER=memory \
-PORT=3001 \
 AWS_REGION=us-west-2 \
 S3_AUDIO_BUCKET_NAME=loopr-audio-local \
-npm run dev
+S3_PRESIGNED_UPLOAD_EXPIRES_SECONDS=900 \
+AWS_ACCESS_KEY_ID=loopr-local \
+AWS_SECRET_ACCESS_KEY=loopr-local \
+dotnet run --project src/Loopr.Api
 ```
 
 Find the Mac local network IP:
@@ -73,7 +75,7 @@ Start Expo for physical iPhone testing:
 ```bash
 cd /Users/rishavpreetsingh/Documents/Projects/loopr/mobile
 
-EXPO_PUBLIC_LOOPR_API_BASE_URL=http://YOUR_MAC_IP:3001 npx expo start
+EXPO_PUBLIC_LOOPR_API_BASE_URL=http://YOUR_MAC_IP:5101 npx expo start
 ```
 
 Replace `YOUR_MAC_IP` with the IP from `ipconfig getifaddr en0`.

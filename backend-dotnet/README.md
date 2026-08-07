@@ -2,7 +2,7 @@
 
 This folder contains the ASP.NET Core backend migration for Loopr.
 
-The Node.js/Express backend in `backend/` is still the active backend until the ASP.NET Core service reaches endpoint parity and the mobile app is intentionally moved over.
+The ASP.NET Core API is now the default local backend target for the mobile app. The Node.js/Express backend in `backend/` remains temporarily until the migration is complete and the old backend can be removed safely.
 
 ## Current Status
 
@@ -26,10 +26,11 @@ The current ASP.NET Core backend provides:
 - track metadata REST endpoint parity
 - S3 presigned upload URL parity
 - multi-stage Docker production image
+- mobile default local API target
 
 It does not yet include:
 
-- intentional mobile default cutover
+- native/device cutover validation
 - Node backend removal
 
 ## Requirements
@@ -256,6 +257,6 @@ The DynamoDB repositories preserve the existing Terraform table shape and intent
 
 ## Migration Boundary
 
-Do not make this backend the mobile app's default target yet. Expo web project creation has been validated against ASP.NET Core, but native/device cutover has not been completed.
+Expo web project creation has been validated against ASP.NET Core, and the mobile app now defaults to the ASP.NET Core local API port. Native/device cutover validation still needs manual QA before removing the Node backend.
 
-The next migration branch should add the smallest validation or integration checkpoint before any intentional mobile cutover.
+The next migration branch should remove the Node backend only after native/device validation confirms the ASP.NET Core backend preserves the mobile flows.
