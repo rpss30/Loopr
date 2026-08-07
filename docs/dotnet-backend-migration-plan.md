@@ -550,6 +550,7 @@ Backend tests currently cover:
 - track routes and validation
 - audio upload route validation and service error handling
 - ASP.NET Core API E2E validation through Playwright request tests
+- Expo web project-flow validation against ASP.NET Core
 - environment parsing
 - S3 client config
 - S3 object key generation
@@ -792,6 +793,24 @@ PR 7 should not:
 
 - point the React Native app at ASP.NET Core
 - replace the current Node/Expo Playwright suite
+- run `terraform apply`
+- create AWS resources
+- change Terraform
+- remove the Node backend
+
+## ASP.NET Core Architecture For PR 8
+
+The mobile validation branch should add:
+
+- ASP.NET Core CORS support for local Expo web validation
+- configurable `CORS_ALLOWED_ORIGINS` support for LAN or alternate local ports
+- a separate Playwright config that runs the existing Expo web project-flow spec against ASP.NET Core
+- CI coverage for the Expo web plus ASP.NET Core validation path
+
+PR 8 should not:
+
+- change the mobile app's default API target
+- test native audio recording through Expo web
 - run `terraform apply`
 - create AWS resources
 - change Terraform
