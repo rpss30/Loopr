@@ -52,6 +52,7 @@ export default function LoopWorkspaceScreen() {
     getTracksByProjectId,
     isLoadingTracks,
     renameTrack,
+    replaceRecordedTrack,
     toggleTrackMuted,
     trackStorageError,
     updateTrackCloudSyncStatus,
@@ -67,6 +68,7 @@ export default function LoopWorkspaceScreen() {
   const recordingDurationMsRef = useRef(0);
   const recordingLoopLimitTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isLayerRecordingOverLoopRef = useRef(false);
+  const overwriteTrackRef = useRef<LoopTrack | null>(null);
   const soundRef = useRef<Audio.Sound | null>(null);
   const sessionSoundRefs = useRef<Map<string, Audio.Sound>>(new Map());
   const sessionLoopTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -74,6 +76,7 @@ export default function LoopWorkspaceScreen() {
 
   const [playingTrackId, setPlayingTrackId] = useState<string | null>(null);
   const [isSessionPlaying, setIsSessionPlaying] = useState(false);
+  const [overwriteTrackId, setOverwriteTrackId] = useState<string | null>(null);
   const [backendSessionId, setBackendSessionId] = useState<string | null>(null);
   const [isEnsuringBackendSession, setIsEnsuringBackendSession] = useState(false);
   const [syncToastMessage, setSyncToastMessage] = useState<string | null>(null);
@@ -91,9 +94,14 @@ export default function LoopWorkspaceScreen() {
     sessionLoopDurationMs,
     playableSessionTracks.length
   );
+  const recordingActionLabel = overwriteTrackId
+    ? 'Redoing layer'
+    : recordingLoopLimitMs
+      ? 'Recording layer'
+      : 'Recording';
   const recordingStatusText = recordingLoopLimitMs
-    ? `Recording layer... ${formatDuration(recordingDurationMs)} / ${formatDuration(recordingLoopLimitMs)}`
-    : `Recording... ${formatDuration(recordingDurationMs)}`;
+    ? `${recordingActionLabel}... ${formatDuration(recordingDurationMs)} / ${formatDuration(recordingLoopLimitMs)}`
+    : `${recordingActionLabel}... ${formatDuration(recordingDurationMs)}`;
   const syncToastText = isEnsuringBackendSession
     ? 'Preparing backend session sync...'
     : syncToastMessage;
@@ -255,16 +263,25 @@ export default function LoopWorkspaceScreen() {
     recordingLoopLimitTimeoutRef.current = null;
   };
 
-  const startRecording = async () => {
+  const startRecording = async ({ overwriteTrack }: { overwriteTrack?: LoopTrack } = {}) => {
     if (!project || recording) {
       return;
     }
 
+    const activeOverwriteTrack = overwriteTrack ?? null;
+    const backingSessionTracks = activeOverwriteTrack
+      ? playableSessionTracks.filter((track) => track.id !== activeOverwriteTrack.id)
+      : playableSessionTracks;
+    const recordingLimitMs = activeOverwriteTrack ? sessionLoopDurationMs : layerRecordingLimitMs;
+    const shouldStartLoopForRecording = Boolean(
+      recordingLimitMs &&
+      backingSessionTracks.length > 0 &&
+      (!isSessionPlaying || activeOverwriteTrack)
+    );
+
     await stopPlayback();
 
-    const shouldStartLoopForRecording = Boolean(layerRecordingLimitMs && !isSessionPlaying);
-
-    if (!layerRecordingLimitMs) {
+    if (!recordingLimitMs || activeOverwriteTrack) {
       await stopSessionPlayback();
     }
 
@@ -291,8 +308,8 @@ export default function LoopWorkspaceScreen() {
       if (shouldStartLoopForRecording) {
         const didStartLoop = await playSession({
           allowsRecording: true,
-          loopDurationMs: layerRecordingLimitMs,
-          sessionTracks: playableSessionTracks,
+          loopDurationMs: recordingLimitMs,
+          sessionTracks: backingSessionTracks,
         });
 
         if (!didStartLoop) {
@@ -303,8 +320,10 @@ export default function LoopWorkspaceScreen() {
       setSyncToastMessage(null);
       setRecordingDurationMs(0);
       recordingDurationMsRef.current = 0;
-      setRecordingLoopLimitMs(layerRecordingLimitMs);
-      isLayerRecordingOverLoopRef.current = Boolean(layerRecordingLimitMs);
+      setRecordingLoopLimitMs(recordingLimitMs);
+      isLayerRecordingOverLoopRef.current = Boolean(recordingLimitMs);
+      overwriteTrackRef.current = activeOverwriteTrack;
+      setOverwriteTrackId(activeOverwriteTrack?.id ?? null);
 
       const recordingResult = await Audio.Recording.createAsync(
         Audio.RecordingOptionsPresets.HIGH_QUALITY,
@@ -319,15 +338,17 @@ export default function LoopWorkspaceScreen() {
       recordingRef.current = recordingResult.recording;
       setRecording(recordingResult.recording);
 
-      if (layerRecordingLimitMs) {
+      if (recordingLimitMs) {
         clearRecordingLoopLimitTimeout();
         recordingLoopLimitTimeoutRef.current = setTimeout(() => {
           void stopRecording();
-        }, layerRecordingLimitMs);
+        }, recordingLimitMs);
       }
     } catch {
       recordingRef.current = null;
       isLayerRecordingOverLoopRef.current = false;
+      overwriteTrackRef.current = null;
+      setOverwriteTrackId(null);
       setRecordingLoopLimitMs(null);
       if (shouldStartLoopForRecording) {
         await stopSessionPlayback();
@@ -342,14 +363,17 @@ export default function LoopWorkspaceScreen() {
     }
 
     const activeRecording = recordingRef.current;
+    const activeOverwriteTrack = overwriteTrackRef.current;
     const shouldRestartLoopWithSavedTrack = isLayerRecordingOverLoopRef.current;
     const loopDurationForSavedTrack = sessionLoopDurationMs;
 
     clearRecordingLoopLimitTimeout();
     recordingRef.current = null;
     isLayerRecordingOverLoopRef.current = false;
+    overwriteTrackRef.current = null;
     setRecording(null);
     setRecordingLoopLimitMs(null);
+    setOverwriteTrackId(null);
 
     try {
       await activeRecording.stopAndUnloadAsync();
@@ -367,20 +391,40 @@ export default function LoopWorkspaceScreen() {
         return;
       }
 
-      const savedTrack = addRecordedTrack({
-        projectId: project.id,
-        localUri,
-        durationMs: Math.max(recordingDurationMsRef.current, 1000),
-      });
+      const savedDurationMs = Math.max(recordingDurationMsRef.current, 1000);
+      const savedTrack = activeOverwriteTrack
+        ? replaceRecordedTrack(activeOverwriteTrack.id, {
+            localUri,
+            durationMs: savedDurationMs,
+          })
+        : addRecordedTrack({
+            projectId: project.id,
+            localUri,
+            durationMs: savedDurationMs,
+          });
 
-      if (project.loopDurationMs === null) {
+      if (!savedTrack) {
+        deleteLocalAudioFile(localUri);
+        Alert.alert('Redo failed', 'Loopr could not replace this layer.');
+        return;
+      }
+
+      if (activeOverwriteTrack?.localUri && activeOverwriteTrack.localUri !== localUri) {
+        const didDeleteAudioFile = deleteLocalAudioFile(activeOverwriteTrack.localUri);
+
+        if (!didDeleteAudioFile) {
+          setSyncToastMessage('Layer replaced, but old audio cleanup was unavailable.');
+        }
+      }
+
+      if (project.loopDurationMs === null && !activeOverwriteTrack) {
         setProjectLoopDuration(project.id, savedTrack.durationMs);
       }
 
       if (shouldRestartLoopWithSavedTrack && loopDurationForSavedTrack) {
         void playSession({
           loopDurationMs: loopDurationForSavedTrack,
-          sessionTracks: [...playableSessionTracks, savedTrack],
+          sessionTracks: getSessionTracksAfterSave(playableSessionTracks, savedTrack),
         });
       }
 
@@ -740,6 +784,30 @@ export default function LoopWorkspaceScreen() {
     ]);
   };
 
+  const handleRedoPress = (track: LoopTrack) => {
+    if (isRecording) {
+      return;
+    }
+
+    if (!track.localUri) {
+      Alert.alert('No audio file', 'Record this layer before using Redo.');
+      return;
+    }
+
+    Alert.alert('Redo layer?', `"${track.name}" will be replaced by a new recording.`, [
+      {
+        text: 'Cancel',
+        style: 'cancel',
+      },
+      {
+        text: 'Redo',
+        onPress: () => {
+          void startRecording({ overwriteTrack: track });
+        },
+      },
+    ]);
+  };
+
   const previewTrackVolume = (track: LoopTrack, volume: number) => {
     if (playingTrackId === track.id && soundRef.current) {
       void soundRef.current.setVolumeAsync(volume);
@@ -861,7 +929,7 @@ export default function LoopWorkspaceScreen() {
           <View style={styles.transportRow}>
             <Pressable
               style={[styles.recordButton, isRecording ? styles.stopButton : null]}
-              onPress={isRecording ? stopRecording : startRecording}
+              onPress={isRecording ? stopRecording : () => startRecording()}
             >
               <Text style={styles.recordButtonText}>{isRecording ? 'Stop & save' : 'Record'}</Text>
             </Pressable>
@@ -914,6 +982,7 @@ export default function LoopWorkspaceScreen() {
                 <TrackCard
                   key={track.id}
                   track={track}
+                  isRecording={isRecording}
                   isPlaying={playingTrackId === track.id}
                   isPlayingInSession={isSessionPlaying && Boolean(track.localUri) && !track.muted}
                   onDeletePress={() => {
@@ -924,6 +993,9 @@ export default function LoopWorkspaceScreen() {
                   }}
                   onPlayPress={() => {
                     void playTrack(track);
+                  }}
+                  onRedoPress={() => {
+                    handleRedoPress(track);
                   }}
                   onRenamePress={() => {
                     handleRenamePress(track);
@@ -967,21 +1039,25 @@ export default function LoopWorkspaceScreen() {
 
 function TrackCard({
   track,
+  isRecording,
   isPlaying,
   isPlayingInSession,
   onDeletePress,
   onMutePress,
   onPlayPress,
+  onRedoPress,
   onRenamePress,
   onVolumeChange,
   onVolumeChangeComplete,
 }: {
   track: LoopTrack;
+  isRecording: boolean;
   isPlaying: boolean;
   isPlayingInSession: boolean;
   onDeletePress: () => void;
   onMutePress: () => void;
   onPlayPress: () => void;
+  onRedoPress: () => void;
   onRenamePress: () => void;
   onVolumeChange: (volume: number) => void;
   onVolumeChangeComplete: (volume: number) => void;
@@ -1068,6 +1144,24 @@ function TrackCard({
             </Text>
           </Pressable>
 
+          <Pressable
+            style={[
+              styles.trackRedoButton,
+              !hasAudio || isRecording ? styles.trackRedoButtonDisabled : null,
+            ]}
+            onPress={onRedoPress}
+            disabled={!hasAudio || isRecording}
+          >
+            <Text
+              style={[
+                styles.trackRedoButtonText,
+                !hasAudio || isRecording ? styles.trackRedoButtonTextDisabled : null,
+              ]}
+            >
+              Redo
+            </Text>
+          </Pressable>
+
           <Pressable style={styles.trackDeleteButton} onPress={onDeletePress}>
             <Text style={styles.trackDeleteButtonText}>Delete</Text>
           </Pressable>
@@ -1118,6 +1212,12 @@ function getCloudSyncBadge(status: LoopTrackCloudSyncStatus) {
         style: styles.cloudSyncBadgeLocalOnly,
       };
   }
+}
+
+function getSessionTracksAfterSave(playableTracks: LoopTrack[], savedTrack: LoopTrack) {
+  return [...playableTracks.filter((track) => track.id !== savedTrack.id), savedTrack]
+    .filter((track) => track.localUri && !track.muted)
+    .sort((left, right) => left.orderIndex - right.orderIndex);
 }
 
 const styles = StyleSheet.create({
@@ -1355,6 +1455,23 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 8,
     marginTop: 8,
+  },
+  trackRedoButton: {
+    backgroundColor: '#1F2937',
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  trackRedoButtonDisabled: {
+    backgroundColor: '#111827',
+  },
+  trackRedoButtonText: {
+    color: '#E0F2FE',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  trackRedoButtonTextDisabled: {
+    color: '#64748B',
   },
   trackBadges: {
     alignItems: 'flex-end',

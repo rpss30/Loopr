@@ -17,6 +17,12 @@ type AddRecordedTrackInput = {
   durationMs: number;
 };
 
+type ReplaceRecordedTrackInput = {
+  localUri: string;
+  durationMs: number;
+  cloudSyncStatus?: LoopTrackCloudSyncStatus;
+};
+
 type UpdateTrackCloudSyncInput = {
   cloudSyncStatus: LoopTrackCloudSyncStatus;
   backendTrackId?: string | null;
@@ -27,6 +33,7 @@ type TrackContextValue = {
   isLoadingTracks: boolean;
   trackStorageError: string | null;
   addRecordedTrack: (input: AddRecordedTrackInput) => LoopTrack;
+  replaceRecordedTrack: (trackId: string, input: ReplaceRecordedTrackInput) => LoopTrack | null;
   toggleTrackMuted: (trackId: string) => void;
   renameTrack: (trackId: string, name: string) => void;
   deleteTrack: (trackId: string) => void;
@@ -196,6 +203,46 @@ export function TrackProvider({ children }: PropsWithChildren) {
     [tracks]
   );
 
+  const replaceRecordedTrack = useCallback(
+    (trackId: string, input: ReplaceRecordedTrackInput) => {
+      const now = new Date().toISOString();
+      const existingTrack = tracks.find((track) => track.id === trackId);
+
+      if (!existingTrack) {
+        return null;
+      }
+
+      const replacedTrack: LoopTrack = {
+        ...existingTrack,
+        localUri: input.localUri,
+        durationMs: input.durationMs,
+        cloudSyncStatus: input.cloudSyncStatus ?? 'local-only',
+        backendTrackId: null,
+        updatedAt: now,
+      };
+
+      setTracks((currentTracks) =>
+        currentTracks.map((track) => {
+          if (track.id !== trackId) {
+            return track;
+          }
+
+          return {
+            ...track,
+            localUri: input.localUri,
+            durationMs: input.durationMs,
+            cloudSyncStatus: input.cloudSyncStatus ?? 'local-only',
+            backendTrackId: null,
+            updatedAt: now,
+          };
+        })
+      );
+
+      return replacedTrack;
+    },
+    [tracks]
+  );
+
   const toggleTrackMuted = useCallback((trackId: string) => {
     const now = new Date().toISOString();
 
@@ -336,6 +383,7 @@ export function TrackProvider({ children }: PropsWithChildren) {
       isLoadingTracks,
       trackStorageError,
       addRecordedTrack,
+      replaceRecordedTrack,
       toggleTrackMuted,
       renameTrack,
       deleteTrack,
@@ -353,6 +401,7 @@ export function TrackProvider({ children }: PropsWithChildren) {
       getTracksByProjectId,
       isLoadingTracks,
       renameTrack,
+      replaceRecordedTrack,
       toggleTrackMuted,
       trackStorageError,
       tracks,
