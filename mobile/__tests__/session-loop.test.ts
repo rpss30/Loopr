@@ -1,4 +1,4 @@
-import { getSessionLoopDurationMs } from '@/features/tracks/session-loop';
+import { getLayerRecordingLimitMs, getSessionLoopDurationMs } from '@/features/tracks/session-loop';
 import { LoopTrack } from '@/types/track';
 
 const recordedTrack: LoopTrack = {
@@ -28,5 +28,13 @@ describe('session loop duration', () => {
 
   it('returns null when there is no recorded layer to define the loop', () => {
     expect(getSessionLoopDurationMs(null, [{ ...recordedTrack, localUri: null }])).toBeNull();
+  });
+
+  it('limits layer recordings when a playable layer already exists', () => {
+    expect(getLayerRecordingLimitMs(4000.4, 1)).toBe(4000);
+  });
+
+  it('does not limit the first layer recording', () => {
+    expect(getLayerRecordingLimitMs(4000, 0)).toBeNull();
   });
 });

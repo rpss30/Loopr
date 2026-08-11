@@ -15,6 +15,17 @@ export function getSessionLoopDurationMs(
   return firstRecordedTrack ? Math.round(firstRecordedTrack.durationMs) : null;
 }
 
+export function getLayerRecordingLimitMs(
+  sessionLoopDurationMs: number | null,
+  playableLayerCount: number
+) {
+  if (!isPositiveDuration(sessionLoopDurationMs) || playableLayerCount <= 0) {
+    return null;
+  }
+
+  return Math.round(sessionLoopDurationMs);
+}
+
 function isPositiveDuration(durationMs: number | null | undefined): durationMs is number {
   return typeof durationMs === 'number' && Number.isFinite(durationMs) && durationMs > 0;
 }

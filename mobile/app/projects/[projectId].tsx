@@ -16,7 +16,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useProjects } from '../../features/projects/project-store';
 import { deleteLocalAudioFile } from '../../features/tracks/audio-file-cleanup';
-import { getSessionLoopDurationMs } from '../../features/tracks/session-loop';
+import {
+  getLayerRecordingLimitMs,
+  getSessionLoopDurationMs,
+} from '../../features/tracks/session-loop';
 import { useTracks } from '../../features/tracks/track-store';
 import { ensureBackendSessionForProject } from '../../services/project-session-sync';
 import {
@@ -57,8 +60,13 @@ export default function LoopWorkspaceScreen() {
 
   const [recording, setRecording] = useState<Audio.Recording | null>(null);
   const [recordingDurationMs, setRecordingDurationMs] = useState(0);
+  const [recordingLoopLimitMs, setRecordingLoopLimitMs] = useState<number | null>(null);
   const [permissionResponse, requestPermission] = Audio.usePermissions();
 
+  const recordingRef = useRef<Audio.Recording | null>(null);
+  const recordingDurationMsRef = useRef(0);
+  const recordingLoopLimitTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isLayerRecordingOverLoopRef = useRef(false);
   const soundRef = useRef<Audio.Sound | null>(null);
   const sessionSoundRefs = useRef<Map<string, Audio.Sound>>(new Map());
   const sessionLoopTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -79,6 +87,13 @@ export default function LoopWorkspaceScreen() {
   const playableSessionTracks = tracks.filter((track) => track.localUri && !track.muted);
   const canPlaySession = playableSessionTracks.length > 0;
   const sessionLoopDurationMs = getSessionLoopDurationMs(project?.loopDurationMs ?? null, tracks);
+  const layerRecordingLimitMs = getLayerRecordingLimitMs(
+    sessionLoopDurationMs,
+    playableSessionTracks.length
+  );
+  const recordingStatusText = recordingLoopLimitMs
+    ? `Recording layer... ${formatDuration(recordingDurationMs)} / ${formatDuration(recordingLoopLimitMs)}`
+    : `Recording... ${formatDuration(recordingDurationMs)}`;
   const syncToastText = isEnsuringBackendSession
     ? 'Preparing backend session sync...'
     : syncToastMessage;
@@ -206,6 +221,7 @@ export default function LoopWorkspaceScreen() {
   useEffect(() => {
     return () => {
       clearSessionLoopTimeout();
+      clearRecordingLoopLimitTimeout();
       sessionPlaybackGenerationRef.current += 1;
 
       if (soundRef.current) {
@@ -230,13 +246,27 @@ export default function LoopWorkspaceScreen() {
     sessionLoopTimeoutRef.current = null;
   };
 
+  const clearRecordingLoopLimitTimeout = () => {
+    if (!recordingLoopLimitTimeoutRef.current) {
+      return;
+    }
+
+    clearTimeout(recordingLoopLimitTimeoutRef.current);
+    recordingLoopLimitTimeoutRef.current = null;
+  };
+
   const startRecording = async () => {
     if (!project || recording) {
       return;
     }
 
     await stopPlayback();
-    await stopSessionPlayback();
+
+    const shouldStartLoopForRecording = Boolean(layerRecordingLimitMs && !isSessionPlaying);
+
+    if (!layerRecordingLimitMs) {
+      await stopSessionPlayback();
+    }
 
     try {
       let permission = permissionResponse;
@@ -258,30 +288,68 @@ export default function LoopWorkspaceScreen() {
         playsInSilentModeIOS: true,
       });
 
+      if (shouldStartLoopForRecording) {
+        const didStartLoop = await playSession({
+          allowsRecording: true,
+          loopDurationMs: layerRecordingLimitMs,
+          sessionTracks: playableSessionTracks,
+        });
+
+        if (!didStartLoop) {
+          return;
+        }
+      }
+
       setSyncToastMessage(null);
       setRecordingDurationMs(0);
+      recordingDurationMsRef.current = 0;
+      setRecordingLoopLimitMs(layerRecordingLimitMs);
+      isLayerRecordingOverLoopRef.current = Boolean(layerRecordingLimitMs);
 
       const recordingResult = await Audio.Recording.createAsync(
         Audio.RecordingOptionsPresets.HIGH_QUALITY,
         (status) => {
-          setRecordingDurationMs(status.durationMillis ?? 0);
+          const durationMs = status.durationMillis ?? 0;
+          recordingDurationMsRef.current = durationMs;
+          setRecordingDurationMs(durationMs);
         },
         250
       );
 
+      recordingRef.current = recordingResult.recording;
       setRecording(recordingResult.recording);
+
+      if (layerRecordingLimitMs) {
+        clearRecordingLoopLimitTimeout();
+        recordingLoopLimitTimeoutRef.current = setTimeout(() => {
+          void stopRecording();
+        }, layerRecordingLimitMs);
+      }
     } catch {
+      recordingRef.current = null;
+      isLayerRecordingOverLoopRef.current = false;
+      setRecordingLoopLimitMs(null);
+      if (shouldStartLoopForRecording) {
+        await stopSessionPlayback();
+      }
       Alert.alert('Recording failed', 'Could not start recording. Try again.');
     }
   };
 
   const stopRecording = async () => {
-    if (!project || !recording) {
+    if (!project || !recordingRef.current) {
       return;
     }
 
-    const activeRecording = recording;
+    const activeRecording = recordingRef.current;
+    const shouldRestartLoopWithSavedTrack = isLayerRecordingOverLoopRef.current;
+    const loopDurationForSavedTrack = sessionLoopDurationMs;
+
+    clearRecordingLoopLimitTimeout();
+    recordingRef.current = null;
+    isLayerRecordingOverLoopRef.current = false;
     setRecording(null);
+    setRecordingLoopLimitMs(null);
 
     try {
       await activeRecording.stopAndUnloadAsync();
@@ -293,6 +361,8 @@ export default function LoopWorkspaceScreen() {
       const localUri = activeRecording.getURI();
 
       if (!localUri) {
+        setRecordingDurationMs(0);
+        recordingDurationMsRef.current = 0;
         Alert.alert('Recording unavailable', 'Loopr could not find the saved recording file.');
         return;
       }
@@ -300,11 +370,18 @@ export default function LoopWorkspaceScreen() {
       const savedTrack = addRecordedTrack({
         projectId: project.id,
         localUri,
-        durationMs: Math.max(recordingDurationMs, 1000),
+        durationMs: Math.max(recordingDurationMsRef.current, 1000),
       });
 
       if (project.loopDurationMs === null) {
         setProjectLoopDuration(project.id, savedTrack.durationMs);
+      }
+
+      if (shouldRestartLoopWithSavedTrack && loopDurationForSavedTrack) {
+        void playSession({
+          loopDurationMs: loopDurationForSavedTrack,
+          sessionTracks: [...playableSessionTracks, savedTrack],
+        });
       }
 
       if (backendSessionId) {
@@ -363,9 +440,11 @@ export default function LoopWorkspaceScreen() {
       }
 
       setRecordingDurationMs(0);
+      recordingDurationMsRef.current = 0;
     } catch {
       Alert.alert('Recording failed', 'Could not stop and save the recording.');
       setRecordingDurationMs(0);
+      recordingDurationMsRef.current = 0;
     }
   };
   const stopPlayback = async () => {
@@ -446,21 +525,29 @@ export default function LoopWorkspaceScreen() {
     }
   };
 
-  const playSession = async () => {
-    if (!canPlaySession) {
+  const playSession = async ({
+    allowsRecording = false,
+    loopDurationMs = sessionLoopDurationMs,
+    sessionTracks = playableSessionTracks,
+  }: {
+    allowsRecording?: boolean;
+    loopDurationMs?: number | null;
+    sessionTracks?: LoopTrack[];
+  } = {}) => {
+    if (sessionTracks.length === 0) {
       Alert.alert(
         'No playable tracks',
         'Record a track or unmute an existing recorded track before playing the session.'
       );
-      return;
+      return false;
     }
 
-    if (!sessionLoopDurationMs) {
+    if (!loopDurationMs) {
       Alert.alert(
         'Loop unavailable',
         'Record a first layer before starting looped session playback.'
       );
-      return;
+      return false;
     }
 
     try {
@@ -468,7 +555,7 @@ export default function LoopWorkspaceScreen() {
       await stopSessionPlayback();
 
       await Audio.setAudioModeAsync({
-        allowsRecordingIOS: false,
+        allowsRecordingIOS: allowsRecording,
         playsInSilentModeIOS: true,
       });
 
@@ -476,7 +563,7 @@ export default function LoopWorkspaceScreen() {
       sessionPlaybackGenerationRef.current = playbackGeneration;
       setIsSessionPlaying(true);
 
-      await playSessionCycle(playableSessionTracks, sessionLoopDurationMs, playbackGeneration);
+      return await playSessionCycle(sessionTracks, loopDurationMs, playbackGeneration);
     } catch {
       sessionPlaybackGenerationRef.current += 1;
       clearSessionLoopTimeout();
@@ -484,6 +571,7 @@ export default function LoopWorkspaceScreen() {
       setIsSessionPlaying(false);
 
       Alert.alert('Session playback failed', 'Could not play all recorded tracks.');
+      return false;
     }
   };
 
@@ -514,7 +602,7 @@ export default function LoopWorkspaceScreen() {
 
       if (playbackGeneration !== sessionPlaybackGenerationRef.current) {
         await Promise.all(Array.from(loadedSounds.values()).map((sound) => sound.unloadAsync()));
-        return;
+        return false;
       }
 
       sessionSoundRefs.current = loadedSounds;
@@ -529,6 +617,8 @@ export default function LoopWorkspaceScreen() {
           void playSessionCycle(sessionTracks, loopDurationMs, playbackGeneration);
         }
       }, loopDurationMs);
+
+      return true;
     } catch {
       await Promise.all(Array.from(loadedSounds.values()).map((sound) => sound.unloadAsync()));
       sessionSoundRefs.current.clear();
@@ -537,6 +627,7 @@ export default function LoopWorkspaceScreen() {
       setIsSessionPlaying(false);
 
       Alert.alert('Session playback failed', 'Could not play all recorded tracks.');
+      return false;
     }
   };
 
@@ -803,7 +894,7 @@ export default function LoopWorkspaceScreen() {
 
           <Text style={styles.helperText}>
             {isRecording
-              ? `Recording... ${formatDuration(recordingDurationMs)}`
+              ? recordingStatusText
               : isSessionPlaying
                 ? `Looping all unmuted tracks every ${formatDuration(sessionLoopDurationMs ?? 0)}.`
                 : canPlaySession
