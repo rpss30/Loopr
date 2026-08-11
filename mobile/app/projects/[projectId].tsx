@@ -1,5 +1,5 @@
 import Slider from '@react-native-community/slider';
-import { Audio } from 'expo-av';
+import { Audio, InterruptionModeAndroid, InterruptionModeIOS } from 'expo-av';
 import { Link, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
@@ -43,6 +43,18 @@ async function stopAndUnloadSound(sound: Audio.Sound) {
   } catch {
     // The sound may already be stopped or unloaded by a playback callback.
   }
+}
+
+async function setWorkspaceAudioMode(allowsRecording: boolean) {
+  await Audio.setAudioModeAsync({
+    allowsRecordingIOS: allowsRecording,
+    interruptionModeIOS: InterruptionModeIOS.DoNotMix,
+    playsInSilentModeIOS: true,
+    staysActiveInBackground: false,
+    interruptionModeAndroid: InterruptionModeAndroid.DoNotMix,
+    shouldDuckAndroid: false,
+    playThroughEarpieceAndroid: false,
+  });
 }
 
 export default function LoopWorkspaceScreen() {
@@ -302,10 +314,7 @@ export default function LoopWorkspaceScreen() {
         return;
       }
 
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: true,
-        playsInSilentModeIOS: true,
-      });
+      await setWorkspaceAudioMode(true);
 
       setSyncToastMessage(null);
       setRecordingDurationMs(0);
@@ -329,11 +338,7 @@ export default function LoopWorkspaceScreen() {
       setRecording(recordingResult.recording);
 
       if (shouldStartLoopForRecording) {
-        const didStartLoop = await playSession({
-          allowsRecording: true,
-          loopDurationMs: recordingLimitMs,
-          sessionTracks: backingSessionTracks,
-        });
+        const didStartLoop = await playRecordingBackingLoop(backingSessionTracks);
 
         if (!didStartLoop) {
           clearRecordingLoopLimitTimeout();
@@ -352,9 +357,7 @@ export default function LoopWorkspaceScreen() {
             // Recording may already have been stopped by the native layer.
           }
 
-          await Audio.setAudioModeAsync({
-            allowsRecordingIOS: false,
-          });
+          await setWorkspaceAudioMode(false);
 
           return;
         }
@@ -412,9 +415,7 @@ export default function LoopWorkspaceScreen() {
 
       await activeRecording.stopAndUnloadAsync();
 
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: false,
-      });
+      await setWorkspaceAudioMode(false);
 
       const localUri = activeRecording.getURI();
 
@@ -582,10 +583,7 @@ export default function LoopWorkspaceScreen() {
       await stopPlayback();
       await stopSessionPlayback();
 
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: false,
-        playsInSilentModeIOS: true,
-      });
+      await setWorkspaceAudioMode(false);
 
       const { sound } = await Audio.Sound.createAsync(
         { uri: track.localUri },
@@ -611,11 +609,9 @@ export default function LoopWorkspaceScreen() {
   };
 
   const playSession = async ({
-    allowsRecording = false,
     loopDurationMs = sessionLoopDurationMs,
     sessionTracks = playableSessionTracks,
   }: {
-    allowsRecording?: boolean;
     loopDurationMs?: number | null;
     sessionTracks?: LoopTrack[];
   } = {}) => {
@@ -639,10 +635,7 @@ export default function LoopWorkspaceScreen() {
       await stopPlayback();
       await stopSessionPlayback();
 
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: allowsRecording,
-        playsInSilentModeIOS: true,
-      });
+      await setWorkspaceAudioMode(false);
 
       const playbackGeneration = sessionPlaybackGenerationRef.current + 1;
       sessionPlaybackGenerationRef.current = playbackGeneration;
@@ -656,6 +649,57 @@ export default function LoopWorkspaceScreen() {
       setIsSessionPlaying(false);
 
       Alert.alert('Session playback failed', 'Could not play all recorded tracks.');
+      return false;
+    }
+  };
+
+  const playRecordingBackingLoop = async (sessionTracks: LoopTrack[]) => {
+    const loadedSounds = new Map<string, Audio.Sound>();
+
+    try {
+      await stopSessionPlayback();
+      await setWorkspaceAudioMode(true);
+
+      const playbackGeneration = sessionPlaybackGenerationRef.current + 1;
+      sessionPlaybackGenerationRef.current = playbackGeneration;
+      setIsSessionPlaying(true);
+
+      for (const track of sessionTracks) {
+        if (!track.localUri) {
+          continue;
+        }
+
+        const { sound } = await Audio.Sound.createAsync(
+          { uri: track.localUri },
+          {
+            shouldPlay: false,
+            isLooping: true,
+            positionMillis: 0,
+            volume: track.volume,
+          }
+        );
+        loadedSounds.set(track.id, sound);
+      }
+
+      if (playbackGeneration !== sessionPlaybackGenerationRef.current) {
+        await Promise.all(Array.from(loadedSounds.values()).map((sound) => sound.unloadAsync()));
+        return false;
+      }
+
+      sessionSoundRefs.current = loadedSounds;
+
+      await Promise.all(
+        Array.from(loadedSounds.values()).map((sound) => sound.playFromPositionAsync(0))
+      );
+
+      return true;
+    } catch {
+      await Promise.all(Array.from(loadedSounds.values()).map((sound) => sound.unloadAsync()));
+      sessionSoundRefs.current.clear();
+      sessionPlaybackGenerationRef.current += 1;
+      setIsSessionPlaying(false);
+
+      Alert.alert('Session playback failed', 'Could not play existing layers while recording.');
       return false;
     }
   };
