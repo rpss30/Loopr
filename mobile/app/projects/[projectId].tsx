@@ -18,8 +18,10 @@ import { useProjects } from '../../features/projects/project-store';
 import { deleteLocalAudioFile } from '../../features/tracks/audio-file-cleanup';
 import { getSavedRecordingDurationMs } from '../../features/tracks/recording-duration';
 import {
+  getBaseLoopDurationMs,
   getLayerRecordingLimitMs,
   getSessionLoopDurationMs,
+  isBaseLoopTrack,
 } from '../../features/tracks/session-loop';
 import { useTracks } from '../../features/tracks/track-store';
 import { ensureBackendSessionForProject } from '../../services/project-session-sync';
@@ -90,6 +92,7 @@ export default function LoopWorkspaceScreen() {
   const isRecording = recording !== null;
   const playableSessionTracks = tracks.filter((track) => track.localUri && !track.muted);
   const canPlaySession = playableSessionTracks.length > 0;
+  const baseLoopDurationMs = getBaseLoopDurationMs(tracks);
   const sessionLoopDurationMs = getSessionLoopDurationMs(project?.loopDurationMs ?? null, tracks);
   const layerRecordingLimitMs = getLayerRecordingLimitMs(
     sessionLoopDurationMs,
@@ -220,12 +223,12 @@ export default function LoopWorkspaceScreen() {
   }, [project]);
 
   useEffect(() => {
-    if (!project || project.loopDurationMs !== null || !sessionLoopDurationMs) {
+    if (!project || isLoadingTracks || project.loopDurationMs === baseLoopDurationMs) {
       return;
     }
 
-    setProjectLoopDuration(project.id, sessionLoopDurationMs);
-  }, [project, sessionLoopDurationMs, setProjectLoopDuration]);
+    setProjectLoopDuration(project.id, baseLoopDurationMs);
+  }, [baseLoopDurationMs, isLoadingTracks, project, setProjectLoopDuration]);
 
   useEffect(() => {
     return () => {
@@ -275,9 +278,7 @@ export default function LoopWorkspaceScreen() {
       : playableSessionTracks;
     const recordingLimitMs = activeOverwriteTrack ? sessionLoopDurationMs : layerRecordingLimitMs;
     const shouldStartLoopForRecording = Boolean(
-      recordingLimitMs &&
-      backingSessionTracks.length > 0 &&
-      (!isSessionPlaying || activeOverwriteTrack)
+      recordingLimitMs && backingSessionTracks.length > 0
     );
 
     await stopPlayback();
@@ -306,18 +307,6 @@ export default function LoopWorkspaceScreen() {
         playsInSilentModeIOS: true,
       });
 
-      if (shouldStartLoopForRecording) {
-        const didStartLoop = await playSession({
-          allowsRecording: true,
-          loopDurationMs: recordingLimitMs,
-          sessionTracks: backingSessionTracks,
-        });
-
-        if (!didStartLoop) {
-          return;
-        }
-      }
-
       setSyncToastMessage(null);
       setRecordingDurationMs(0);
       recordingDurationMsRef.current = 0;
@@ -338,6 +327,38 @@ export default function LoopWorkspaceScreen() {
 
       recordingRef.current = recordingResult.recording;
       setRecording(recordingResult.recording);
+
+      if (shouldStartLoopForRecording) {
+        const didStartLoop = await playSession({
+          allowsRecording: true,
+          loopDurationMs: recordingLimitMs,
+          sessionTracks: backingSessionTracks,
+        });
+
+        if (!didStartLoop) {
+          clearRecordingLoopLimitTimeout();
+          recordingRef.current = null;
+          isLayerRecordingOverLoopRef.current = false;
+          overwriteTrackRef.current = null;
+          setRecording(null);
+          setOverwriteTrackId(null);
+          setRecordingLoopLimitMs(null);
+          setRecordingDurationMs(0);
+          recordingDurationMsRef.current = 0;
+
+          try {
+            await recordingResult.recording.stopAndUnloadAsync();
+          } catch {
+            // Recording may already have been stopped by the native layer.
+          }
+
+          await Audio.setAudioModeAsync({
+            allowsRecordingIOS: false,
+          });
+
+          return;
+        }
+      }
 
       if (recordingLimitMs) {
         clearRecordingLoopLimitTimeout();
@@ -365,6 +386,9 @@ export default function LoopWorkspaceScreen() {
 
     const activeRecording = recordingRef.current;
     const activeOverwriteTrack = overwriteTrackRef.current;
+    const shouldReplaceBaseLoopDuration = activeOverwriteTrack
+      ? isBaseLoopTrack(tracks, activeOverwriteTrack.id)
+      : false;
     const shouldRestartLoopWithSavedTrack = isLayerRecordingOverLoopRef.current;
     const loopDurationForSavedTrack = sessionLoopDurationMs;
     const fallbackDurationForSavedTrack = recordingLoopLimitMs;
@@ -431,7 +455,10 @@ export default function LoopWorkspaceScreen() {
         }
       }
 
-      if (project.loopDurationMs === null && !activeOverwriteTrack) {
+      if (
+        (project.loopDurationMs === null && !activeOverwriteTrack) ||
+        shouldReplaceBaseLoopDuration
+      ) {
         setProjectLoopDuration(project.id, savedTrack.durationMs);
       }
 
@@ -925,8 +952,8 @@ export default function LoopWorkspaceScreen() {
           <Text style={styles.subtitle}>
             {project.bpm} BPM · {tracks.length} recorded {tracks.length === 1 ? 'track' : 'tracks'}{' '}
             ·{' '}
-            {project.loopDurationMs
-              ? `loop ${formatDuration(project.loopDurationMs)}`
+            {sessionLoopDurationMs
+              ? `loop ${formatDuration(sessionLoopDurationMs)}`
               : 'loop set by first layer'}
           </Text>
         </View>

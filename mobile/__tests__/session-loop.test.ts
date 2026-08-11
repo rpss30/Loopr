@@ -1,4 +1,9 @@
-import { getLayerRecordingLimitMs, getSessionLoopDurationMs } from '@/features/tracks/session-loop';
+import {
+  getBaseLoopDurationMs,
+  getLayerRecordingLimitMs,
+  getSessionLoopDurationMs,
+  isBaseLoopTrack,
+} from '@/features/tracks/session-loop';
 import { LoopTrack } from '@/types/track';
 
 const recordedTrack: LoopTrack = {
@@ -18,8 +23,12 @@ const recordedTrack: LoopTrack = {
 };
 
 describe('session loop duration', () => {
-  it('uses the project loop duration when it is set', () => {
-    expect(getSessionLoopDurationMs(8000.4, [recordedTrack])).toBe(8000);
+  it('uses the project loop duration when there is no recorded track', () => {
+    expect(getSessionLoopDurationMs(8000.4, [{ ...recordedTrack, localUri: null }])).toBe(8000);
+  });
+
+  it('uses the first recorded track before stale project loop metadata', () => {
+    expect(getSessionLoopDurationMs(13000, [recordedTrack])).toBe(3998);
   });
 
   it('falls back to the first recorded track for older saved projects', () => {
@@ -36,5 +45,23 @@ describe('session loop duration', () => {
 
   it('does not limit the first layer recording', () => {
     expect(getLayerRecordingLimitMs(4000, 0)).toBeNull();
+  });
+
+  it('finds the base loop duration from track order', () => {
+    expect(
+      getBaseLoopDurationMs([
+        { ...recordedTrack, id: 'track-2', orderIndex: 1, durationMs: 11000 },
+        recordedTrack,
+      ])
+    ).toBe(3998);
+  });
+
+  it('identifies the base loop track from track order', () => {
+    expect(
+      isBaseLoopTrack(
+        [{ ...recordedTrack, id: 'track-2', orderIndex: 1, durationMs: 11000 }, recordedTrack],
+        recordedTrack.id
+      )
+    ).toBe(true);
   });
 });
