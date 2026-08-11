@@ -31,6 +31,8 @@ import {
 } from '../../services/recorded-track-cloud-sync';
 import { type LoopTrack, type LoopTrackCloudSyncStatus } from '../../types/track';
 
+const RECORDING_MONITOR_VOLUME = 1;
+
 async function stopAndUnloadSound(sound: Audio.Sound) {
   try {
     const status = await sound.getStatusAsync();
@@ -284,6 +286,7 @@ export default function LoopWorkspaceScreen() {
       return;
     }
 
+    let preparedRecording: Audio.Recording | null = null;
     const activeOverwriteTrack = overwriteTrack ?? null;
     const backingSessionTracks = activeOverwriteTrack
       ? playableSessionTracks.filter((track) => track.id !== activeOverwriteTrack.id)
@@ -324,18 +327,14 @@ export default function LoopWorkspaceScreen() {
       overwriteTrackRef.current = activeOverwriteTrack;
       setOverwriteTrackId(activeOverwriteTrack?.id ?? null);
 
-      const recordingResult = await Audio.Recording.createAsync(
-        Audio.RecordingOptionsPresets.HIGH_QUALITY,
-        (status) => {
-          const durationMs = status.durationMillis ?? 0;
-          recordingDurationMsRef.current = durationMs;
-          setRecordingDurationMs(durationMs);
-        },
-        250
-      );
-
-      recordingRef.current = recordingResult.recording;
-      setRecording(recordingResult.recording);
+      preparedRecording = new Audio.Recording();
+      preparedRecording.setProgressUpdateInterval(250);
+      preparedRecording.setOnRecordingStatusUpdate((status) => {
+        const durationMs = status.durationMillis ?? 0;
+        recordingDurationMsRef.current = durationMs;
+        setRecordingDurationMs(durationMs);
+      });
+      await preparedRecording.prepareToRecordAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
 
       if (shouldStartLoopForRecording) {
         const didStartLoop = await playRecordingBackingLoop(backingSessionTracks);
@@ -352,14 +351,29 @@ export default function LoopWorkspaceScreen() {
           recordingDurationMsRef.current = 0;
 
           try {
-            await recordingResult.recording.stopAndUnloadAsync();
+            await preparedRecording.stopAndUnloadAsync();
           } catch {
-            // Recording may already have been stopped by the native layer.
+            // The prepared recorder may already have been released by the native layer.
           }
 
           await setWorkspaceAudioMode(false);
 
           return;
+        }
+      }
+
+      await preparedRecording.startAsync();
+
+      recordingRef.current = preparedRecording;
+      setRecording(preparedRecording);
+
+      if (Platform.OS === 'ios' && shouldStartLoopForRecording) {
+        for (const sound of sessionSoundRefs.current.values()) {
+          const status = await sound.getStatusAsync();
+
+          if (status.isLoaded && !status.isPlaying) {
+            await sound.playFromPositionAsync(0);
+          }
         }
       }
 
@@ -370,11 +384,22 @@ export default function LoopWorkspaceScreen() {
         }, recordingLimitMs);
       }
     } catch {
+      if (preparedRecording) {
+        try {
+          await preparedRecording.stopAndUnloadAsync();
+        } catch {
+          // The recorder may not have reached a prepared state.
+        }
+      }
+
       recordingRef.current = null;
       isLayerRecordingOverLoopRef.current = false;
       overwriteTrackRef.current = null;
       setOverwriteTrackId(null);
       setRecordingLoopLimitMs(null);
+      setRecording(null);
+      setRecordingDurationMs(0);
+      recordingDurationMsRef.current = 0;
       if (shouldStartLoopForRecording) {
         await stopSessionPlayback();
       }
@@ -675,7 +700,7 @@ export default function LoopWorkspaceScreen() {
             shouldPlay: false,
             isLooping: true,
             positionMillis: 0,
-            volume: track.volume,
+            volume: RECORDING_MONITOR_VOLUME,
           }
         );
         loadedSounds.set(track.id, sound);
