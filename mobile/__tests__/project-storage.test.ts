@@ -24,6 +24,7 @@ const validProject: LoopProject = {
   name: 'Acoustic Idea',
   bpm: 90,
   trackCount: 2,
+  loopDurationMs: 8000,
   createdAt: '2026-01-01T00:00:00.000Z',
   updatedAt: '2026-01-01T00:00:00.000Z',
 };
@@ -48,6 +49,20 @@ describe('project storage', () => {
     const projects = await loadProjectsFromStorage();
 
     expect(projects).toEqual([validProject]);
+  });
+
+  it('defaults older stored projects without loop duration to unset', async () => {
+    const { loopDurationMs, ...olderProject } = validProject;
+    mockGetItem.mockResolvedValueOnce(JSON.stringify([olderProject]));
+
+    const projects = await loadProjectsFromStorage();
+
+    expect(projects).toEqual([
+      {
+        ...olderProject,
+        loopDurationMs: null,
+      },
+    ]);
   });
 
   it('filters out invalid stored projects', async () => {

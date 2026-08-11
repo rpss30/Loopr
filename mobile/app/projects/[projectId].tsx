@@ -40,7 +40,8 @@ async function stopAndUnloadSound(sound: Audio.Sound) {
 
 export default function LoopWorkspaceScreen() {
   const params = useLocalSearchParams<{ projectId: string }>();
-  const { getProjectById, isLoadingProjects, renameProject } = useProjects();
+  const { getProjectById, isLoadingProjects, renameProject, setProjectLoopDuration } =
+    useProjects();
   const {
     addRecordedTrack,
     deleteTrack,
@@ -277,6 +278,10 @@ export default function LoopWorkspaceScreen() {
         localUri,
         durationMs: Math.max(recordingDurationMs, 1000),
       });
+
+      if (project.loopDurationMs === null) {
+        setProjectLoopDuration(project.id, savedTrack.durationMs);
+      }
 
       if (backendSessionId) {
         setSyncToastMessage('Uploading recording for cloud sync...');
@@ -680,7 +685,11 @@ export default function LoopWorkspaceScreen() {
             </Pressable>
           </View>
           <Text style={styles.subtitle}>
-            {project.bpm} BPM · {tracks.length} recorded {tracks.length === 1 ? 'track' : 'tracks'}
+            {project.bpm} BPM · {tracks.length} recorded {tracks.length === 1 ? 'track' : 'tracks'}{' '}
+            ·{' '}
+            {project.loopDurationMs
+              ? `loop ${formatDuration(project.loopDurationMs)}`
+              : 'loop set by first layer'}
           </Text>
         </View>
 
