@@ -16,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useProjects } from '../../features/projects/project-store';
 import { deleteLocalAudioFile } from '../../features/tracks/audio-file-cleanup';
+import { getSavedRecordingDurationMs } from '../../features/tracks/recording-duration';
 import {
   getLayerRecordingLimitMs,
   getSessionLoopDurationMs,
@@ -366,6 +367,8 @@ export default function LoopWorkspaceScreen() {
     const activeOverwriteTrack = overwriteTrackRef.current;
     const shouldRestartLoopWithSavedTrack = isLayerRecordingOverLoopRef.current;
     const loopDurationForSavedTrack = sessionLoopDurationMs;
+    const fallbackDurationForSavedTrack = recordingLoopLimitMs;
+    let statusDurationMs: number | null = null;
 
     clearRecordingLoopLimitTimeout();
     recordingRef.current = null;
@@ -376,6 +379,13 @@ export default function LoopWorkspaceScreen() {
     setOverwriteTrackId(null);
 
     try {
+      try {
+        const status = await activeRecording.getStatusAsync();
+        statusDurationMs = status.durationMillis ?? null;
+      } catch {
+        statusDurationMs = null;
+      }
+
       await activeRecording.stopAndUnloadAsync();
 
       await Audio.setAudioModeAsync({
@@ -391,7 +401,11 @@ export default function LoopWorkspaceScreen() {
         return;
       }
 
-      const savedDurationMs = Math.max(recordingDurationMsRef.current, 1000);
+      const savedDurationMs = getSavedRecordingDurationMs({
+        trackedDurationMs: recordingDurationMsRef.current,
+        statusDurationMs,
+        fallbackDurationMs: fallbackDurationForSavedTrack,
+      });
       const savedTrack = activeOverwriteTrack
         ? replaceRecordedTrack(activeOverwriteTrack.id, {
             localUri,
