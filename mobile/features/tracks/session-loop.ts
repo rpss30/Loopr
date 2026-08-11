@@ -4,15 +4,11 @@ export function getSessionLoopDurationMs(
   projectLoopDurationMs: number | null,
   tracks: LoopTrack[]
 ) {
-  if (isPositiveDuration(projectLoopDurationMs)) {
-    return Math.round(projectLoopDurationMs);
-  }
+  return getBaseLoopDurationMs(tracks) ?? normalizeDurationMs(projectLoopDurationMs);
+}
 
-  const firstRecordedTrack = tracks.find(
-    (track) => track.localUri && isPositiveDuration(track.durationMs)
-  );
-
-  return firstRecordedTrack ? Math.round(firstRecordedTrack.durationMs) : null;
+export function getBaseLoopDurationMs(tracks: LoopTrack[]) {
+  return normalizeDurationMs(getBaseLoopTrack(tracks)?.durationMs);
 }
 
 export function getLayerRecordingLimitMs(
@@ -24,6 +20,20 @@ export function getLayerRecordingLimitMs(
   }
 
   return Math.round(sessionLoopDurationMs);
+}
+
+export function isBaseLoopTrack(tracks: LoopTrack[], trackId: string) {
+  return getBaseLoopTrack(tracks)?.id === trackId;
+}
+
+function getBaseLoopTrack(tracks: LoopTrack[]) {
+  return [...tracks]
+    .sort((left, right) => left.orderIndex - right.orderIndex)
+    .find((track) => track.localUri && isPositiveDuration(track.durationMs));
+}
+
+function normalizeDurationMs(durationMs: number | null | undefined) {
+  return isPositiveDuration(durationMs) ? Math.round(durationMs) : null;
 }
 
 function isPositiveDuration(durationMs: number | null | undefined): durationMs is number {

@@ -27,7 +27,7 @@ type ProjectContextValue = {
   renameProject: (projectId: string, name: string) => void;
   deleteProject: (projectId: string) => void;
   getProjectById: (projectId: string) => LoopProject | undefined;
-  setProjectLoopDuration: (projectId: string, durationMs: number) => void;
+  setProjectLoopDuration: (projectId: string, durationMs: number | null) => void;
 };
 
 const starterProjects: LoopProject[] = [
@@ -203,8 +203,8 @@ export function ProjectProvider({ children }: PropsWithChildren) {
     setProjects((currentProjects) => currentProjects.filter((project) => project.id !== projectId));
   }, []);
 
-  const setProjectLoopDuration = useCallback((projectId: string, durationMs: number) => {
-    if (!Number.isFinite(durationMs) || durationMs <= 0) {
+  const setProjectLoopDuration = useCallback((projectId: string, durationMs: number | null) => {
+    if (durationMs !== null && (!Number.isFinite(durationMs) || durationMs <= 0)) {
       return;
     }
 
@@ -218,7 +218,7 @@ export function ProjectProvider({ children }: PropsWithChildren) {
 
         return {
           ...project,
-          loopDurationMs: Math.round(durationMs),
+          loopDurationMs: durationMs === null ? null : Math.round(durationMs),
           updatedAt: now,
         };
       })
