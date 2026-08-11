@@ -16,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useProjects } from '../../features/projects/project-store';
 import { deleteLocalAudioFile } from '../../features/tracks/audio-file-cleanup';
+import { getSessionLoopDurationMs } from '../../features/tracks/session-loop';
 import { useTracks } from '../../features/tracks/track-store';
 import { ensureBackendSessionForProject } from '../../services/project-session-sync';
 import {
@@ -60,6 +61,8 @@ export default function LoopWorkspaceScreen() {
 
   const soundRef = useRef<Audio.Sound | null>(null);
   const sessionSoundRefs = useRef<Map<string, Audio.Sound>>(new Map());
+  const sessionLoopTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const sessionPlaybackGenerationRef = useRef(0);
 
   const [playingTrackId, setPlayingTrackId] = useState<string | null>(null);
   const [isSessionPlaying, setIsSessionPlaying] = useState(false);
@@ -75,6 +78,7 @@ export default function LoopWorkspaceScreen() {
   const isRecording = recording !== null;
   const playableSessionTracks = tracks.filter((track) => track.localUri && !track.muted);
   const canPlaySession = playableSessionTracks.length > 0;
+  const sessionLoopDurationMs = getSessionLoopDurationMs(project?.loopDurationMs ?? null, tracks);
   const syncToastText = isEnsuringBackendSession
     ? 'Preparing backend session sync...'
     : syncToastMessage;
@@ -192,7 +196,18 @@ export default function LoopWorkspaceScreen() {
   }, [project]);
 
   useEffect(() => {
+    if (!project || project.loopDurationMs !== null || !sessionLoopDurationMs) {
+      return;
+    }
+
+    setProjectLoopDuration(project.id, sessionLoopDurationMs);
+  }, [project, sessionLoopDurationMs, setProjectLoopDuration]);
+
+  useEffect(() => {
     return () => {
+      clearSessionLoopTimeout();
+      sessionPlaybackGenerationRef.current += 1;
+
       if (soundRef.current) {
         void stopAndUnloadSound(soundRef.current);
         soundRef.current = null;
@@ -205,6 +220,15 @@ export default function LoopWorkspaceScreen() {
       sessionSoundRefs.current.clear();
     };
   }, []);
+
+  const clearSessionLoopTimeout = () => {
+    if (!sessionLoopTimeoutRef.current) {
+      return;
+    }
+
+    clearTimeout(sessionLoopTimeoutRef.current);
+    sessionLoopTimeoutRef.current = null;
+  };
 
   const startRecording = async () => {
     if (!project || recording) {
@@ -358,10 +382,17 @@ export default function LoopWorkspaceScreen() {
   };
 
   const stopSessionPlayback = async () => {
+    clearSessionLoopTimeout();
+    sessionPlaybackGenerationRef.current += 1;
+
+    await stopSessionSounds();
+    setIsSessionPlaying(false);
+  };
+
+  const stopSessionSounds = async () => {
     const activeSounds = Array.from(sessionSoundRefs.current.values());
 
     sessionSoundRefs.current.clear();
-    setIsSessionPlaying(false);
 
     await Promise.all(activeSounds.map((sound) => stopAndUnloadSound(sound)));
   };
@@ -424,7 +455,13 @@ export default function LoopWorkspaceScreen() {
       return;
     }
 
-    const loadedSounds = new Map<string, Audio.Sound>();
+    if (!sessionLoopDurationMs) {
+      Alert.alert(
+        'Loop unavailable',
+        'Record a first layer before starting looped session playback.'
+      );
+      return;
+    }
 
     try {
       await stopPlayback();
@@ -435,7 +472,32 @@ export default function LoopWorkspaceScreen() {
         playsInSilentModeIOS: true,
       });
 
-      for (const track of playableSessionTracks) {
+      const playbackGeneration = sessionPlaybackGenerationRef.current + 1;
+      sessionPlaybackGenerationRef.current = playbackGeneration;
+      setIsSessionPlaying(true);
+
+      await playSessionCycle(playableSessionTracks, sessionLoopDurationMs, playbackGeneration);
+    } catch {
+      sessionPlaybackGenerationRef.current += 1;
+      clearSessionLoopTimeout();
+      await stopSessionSounds();
+      setIsSessionPlaying(false);
+
+      Alert.alert('Session playback failed', 'Could not play all recorded tracks.');
+    }
+  };
+
+  const playSessionCycle = async (
+    sessionTracks: LoopTrack[],
+    loopDurationMs: number,
+    playbackGeneration: number
+  ) => {
+    const loadedSounds = new Map<string, Audio.Sound>();
+
+    await stopSessionSounds();
+
+    try {
+      for (const track of sessionTracks) {
         if (!track.localUri) {
           continue;
         }
@@ -447,28 +509,31 @@ export default function LoopWorkspaceScreen() {
             volume: track.volume,
           }
         );
-
-        sound.setOnPlaybackStatusUpdate((status) => {
-          if (status.isLoaded && status.didJustFinish) {
-            void stopAndUnloadSound(sound);
-            sessionSoundRefs.current.delete(track.id);
-
-            if (sessionSoundRefs.current.size === 0) {
-              setIsSessionPlaying(false);
-            }
-          }
-        });
-
         loadedSounds.set(track.id, sound);
       }
 
-      sessionSoundRefs.current = loadedSounds;
-      setIsSessionPlaying(true);
+      if (playbackGeneration !== sessionPlaybackGenerationRef.current) {
+        await Promise.all(Array.from(loadedSounds.values()).map((sound) => sound.unloadAsync()));
+        return;
+      }
 
-      await Promise.all(Array.from(loadedSounds.values()).map((sound) => sound.playAsync()));
+      sessionSoundRefs.current = loadedSounds;
+
+      await Promise.all(
+        Array.from(loadedSounds.values()).map((sound) => sound.playFromPositionAsync(0))
+      );
+
+      clearSessionLoopTimeout();
+      sessionLoopTimeoutRef.current = setTimeout(() => {
+        if (playbackGeneration === sessionPlaybackGenerationRef.current) {
+          void playSessionCycle(sessionTracks, loopDurationMs, playbackGeneration);
+        }
+      }, loopDurationMs);
     } catch {
       await Promise.all(Array.from(loadedSounds.values()).map((sound) => sound.unloadAsync()));
       sessionSoundRefs.current.clear();
+      clearSessionLoopTimeout();
+      sessionPlaybackGenerationRef.current += 1;
       setIsSessionPlaying(false);
 
       Alert.alert('Session playback failed', 'Could not play all recorded tracks.');
@@ -740,7 +805,7 @@ export default function LoopWorkspaceScreen() {
             {isRecording
               ? `Recording... ${formatDuration(recordingDurationMs)}`
               : isSessionPlaying
-                ? 'Playing all unmuted recorded tracks in this workspace.'
+                ? `Looping all unmuted tracks every ${formatDuration(sessionLoopDurationMs ?? 0)}.`
                 : canPlaySession
                   ? `Play ${playableSessionTracks.length} unmuted recorded ${
                       playableSessionTracks.length === 1 ? 'track' : 'tracks'
