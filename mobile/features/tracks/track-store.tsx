@@ -15,11 +15,13 @@ type AddRecordedTrackInput = {
   projectId: string;
   localUri: string;
   durationMs: number;
+  playbackStartOffsetMs?: number;
 };
 
 type ReplaceRecordedTrackInput = {
   localUri: string;
   durationMs: number;
+  playbackStartOffsetMs?: number;
   cloudSyncStatus?: LoopTrackCloudSyncStatus;
 };
 
@@ -186,6 +188,7 @@ export function TrackProvider({ children }: PropsWithChildren) {
         name: `Track ${projectTrackCount + 1}`,
         localUri: input.localUri,
         durationMs: input.durationMs,
+        playbackStartOffsetMs: normalizePlaybackStartOffsetMs(input.playbackStartOffsetMs),
         volume: 1,
         muted: false,
         solo: false,
@@ -216,6 +219,7 @@ export function TrackProvider({ children }: PropsWithChildren) {
         ...existingTrack,
         localUri: input.localUri,
         durationMs: input.durationMs,
+        playbackStartOffsetMs: normalizePlaybackStartOffsetMs(input.playbackStartOffsetMs),
         cloudSyncStatus: input.cloudSyncStatus ?? 'local-only',
         backendTrackId: null,
         updatedAt: now,
@@ -231,6 +235,7 @@ export function TrackProvider({ children }: PropsWithChildren) {
             ...track,
             localUri: input.localUri,
             durationMs: input.durationMs,
+            playbackStartOffsetMs: normalizePlaybackStartOffsetMs(input.playbackStartOffsetMs),
             cloudSyncStatus: input.cloudSyncStatus ?? 'local-only',
             backendTrackId: null,
             updatedAt: now,
@@ -421,4 +426,12 @@ export function useTracks() {
   }
 
   return context;
+}
+
+function normalizePlaybackStartOffsetMs(value: number | null | undefined) {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
+    return 0;
+  }
+
+  return Math.round(value);
 }

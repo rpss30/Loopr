@@ -1,5 +1,5 @@
 import Slider from '@react-native-community/slider';
-import { Audio, InterruptionModeAndroid, InterruptionModeIOS } from 'expo-av';
+import { Audio } from 'expo-av';
 import { Link, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
@@ -14,6 +14,27 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import {
+  createPreparedHighQualityRecording,
+  loadRecordingMonitorSounds,
+  loadSessionTrackSounds,
+  playRecordedTrack,
+  playTrackSoundMapFromLoopStart,
+  reinforceRecordingMonitorPlayback,
+  setWorkspaceAudioMode,
+  stopAndUnloadSound,
+  stopAndUnloadSounds,
+  unloadRecording,
+} from '../../features/looper/looper-audio';
+import {
+  DEFAULT_OVERDUB_LATENCY_COMPENSATION_MS,
+  loadOverdubLatencyCompensationMs,
+  MAX_OVERDUB_LATENCY_COMPENSATION_MS,
+  MIN_OVERDUB_LATENCY_COMPENSATION_MS,
+  normalizeOverdubLatencyCompensationMs,
+  OVERDUB_LATENCY_COMPENSATION_STEP_MS,
+  saveOverdubLatencyCompensationMs,
+} from '../../features/looper/latency-compensation-storage';
 import { useProjects } from '../../features/projects/project-store';
 import { deleteLocalAudioFile } from '../../features/tracks/audio-file-cleanup';
 import { getSavedRecordingDurationMs } from '../../features/tracks/recording-duration';
@@ -30,34 +51,6 @@ import {
   syncRecordedTrackToCloud,
 } from '../../services/recorded-track-cloud-sync';
 import { type LoopTrack, type LoopTrackCloudSyncStatus } from '../../types/track';
-
-const RECORDING_MONITOR_VOLUME = 1;
-
-async function stopAndUnloadSound(sound: Audio.Sound) {
-  try {
-    const status = await sound.getStatusAsync();
-
-    if (status.isLoaded) {
-      await sound.stopAsync();
-    }
-
-    await sound.unloadAsync();
-  } catch {
-    // The sound may already be stopped or unloaded by a playback callback.
-  }
-}
-
-async function setWorkspaceAudioMode(allowsRecording: boolean) {
-  await Audio.setAudioModeAsync({
-    allowsRecordingIOS: allowsRecording,
-    interruptionModeIOS: InterruptionModeIOS.DoNotMix,
-    playsInSilentModeIOS: true,
-    staysActiveInBackground: false,
-    interruptionModeAndroid: InterruptionModeAndroid.DoNotMix,
-    shouldDuckAndroid: false,
-    playThroughEarpieceAndroid: false,
-  });
-}
 
 export default function LoopWorkspaceScreen() {
   const params = useLocalSearchParams<{ projectId: string }>();
@@ -83,6 +76,7 @@ export default function LoopWorkspaceScreen() {
 
   const recordingRef = useRef<Audio.Recording | null>(null);
   const recordingDurationMsRef = useRef(0);
+  const recordingPlaybackStartOffsetMsRef = useRef(0);
   const recordingLoopLimitTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isLayerRecordingOverLoopRef = useRef(false);
   const overwriteTrackRef = useRef<LoopTrack | null>(null);
@@ -97,8 +91,12 @@ export default function LoopWorkspaceScreen() {
   const [backendSessionId, setBackendSessionId] = useState<string | null>(null);
   const [isEnsuringBackendSession, setIsEnsuringBackendSession] = useState(false);
   const [syncToastMessage, setSyncToastMessage] = useState<string | null>(null);
+  const [overdubLatencyCompensationMs, setOverdubLatencyCompensationMs] = useState(
+    DEFAULT_OVERDUB_LATENCY_COMPENSATION_MS
+  );
   const syncToastTranslateX = useRef(new Animated.Value(360)).current;
   const syncToastOpacity = useRef(new Animated.Value(0)).current;
+  const didLoadLatencyCompensationRef = useRef(false);
 
   const project = getProjectById(params.projectId);
   const tracks = project ? getTracksByProjectId(project.id) : [];
@@ -123,6 +121,36 @@ export default function LoopWorkspaceScreen() {
   const syncToastText = isEnsuringBackendSession
     ? 'Preparing backend session sync...'
     : syncToastMessage;
+
+  useEffect(() => {
+    let isMounted = true;
+
+    loadOverdubLatencyCompensationMs()
+      .then((value) => {
+        if (isMounted) {
+          didLoadLatencyCompensationRef.current = true;
+          setOverdubLatencyCompensationMs(value);
+        }
+      })
+      .catch(() => {
+        if (isMounted) {
+          didLoadLatencyCompensationRef.current = true;
+          setOverdubLatencyCompensationMs(DEFAULT_OVERDUB_LATENCY_COMPENSATION_MS);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!didLoadLatencyCompensationRef.current) {
+      return;
+    }
+
+    void saveOverdubLatencyCompensationMs(overdubLatencyCompensationMs);
+  }, [overdubLatencyCompensationMs]);
 
   useEffect(() => {
     if (!syncToastText) {
@@ -255,10 +283,7 @@ export default function LoopWorkspaceScreen() {
         soundRef.current = null;
       }
 
-      sessionSoundRefs.current.forEach((sound) => {
-        void stopAndUnloadSound(sound);
-      });
-
+      void stopAndUnloadSounds(sessionSoundRefs.current.values());
       sessionSoundRefs.current.clear();
     };
   }, []);
@@ -322,59 +347,50 @@ export default function LoopWorkspaceScreen() {
       setSyncToastMessage(null);
       setRecordingDurationMs(0);
       recordingDurationMsRef.current = 0;
+      recordingPlaybackStartOffsetMsRef.current = 0;
       setRecordingLoopLimitMs(recordingLimitMs);
       isLayerRecordingOverLoopRef.current = Boolean(recordingLimitMs);
       overwriteTrackRef.current = activeOverwriteTrack;
       setOverwriteTrackId(activeOverwriteTrack?.id ?? null);
 
-      preparedRecording = new Audio.Recording();
-      preparedRecording.setProgressUpdateInterval(250);
-      preparedRecording.setOnRecordingStatusUpdate((status) => {
-        const durationMs = status.durationMillis ?? 0;
+      preparedRecording = await createPreparedHighQualityRecording((durationMs) => {
         recordingDurationMsRef.current = durationMs;
         setRecordingDurationMs(durationMs);
       });
-      await preparedRecording.prepareToRecordAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
+
+      await preparedRecording.startAsync();
+
+      const recordingStartedAtMs = Date.now();
+      recordingRef.current = preparedRecording;
+      setRecording(preparedRecording);
 
       if (shouldStartLoopForRecording) {
-        const didStartLoop = await playRecordingBackingLoop(backingSessionTracks);
+        const backingStartedAtMs = await playRecordingBackingLoop(backingSessionTracks);
 
-        if (!didStartLoop) {
+        if (backingStartedAtMs === null) {
           clearRecordingLoopLimitTimeout();
           recordingRef.current = null;
           isLayerRecordingOverLoopRef.current = false;
           overwriteTrackRef.current = null;
+          recordingPlaybackStartOffsetMsRef.current = 0;
           setRecording(null);
           setOverwriteTrackId(null);
           setRecordingLoopLimitMs(null);
           setRecordingDurationMs(0);
           recordingDurationMsRef.current = 0;
 
-          try {
-            await preparedRecording.stopAndUnloadAsync();
-          } catch {
-            // The prepared recorder may already have been released by the native layer.
-          }
+          await unloadRecording(preparedRecording);
 
           await setWorkspaceAudioMode(false);
 
           return;
         }
-      }
 
-      await preparedRecording.startAsync();
-
-      recordingRef.current = preparedRecording;
-      setRecording(preparedRecording);
-
-      if (Platform.OS === 'ios' && shouldStartLoopForRecording) {
-        for (const sound of sessionSoundRefs.current.values()) {
-          const status = await sound.getStatusAsync();
-
-          if (status.isLoaded && !status.isPlaying) {
-            await sound.playFromPositionAsync(0);
-          }
-        }
+        recordingPlaybackStartOffsetMsRef.current = Math.max(
+          0,
+          backingStartedAtMs - recordingStartedAtMs + overdubLatencyCompensationMs
+        );
+        await reinforceRecordingMonitorPlayback(sessionSoundRefs.current, backingSessionTracks);
       }
 
       if (recordingLimitMs) {
@@ -385,16 +401,13 @@ export default function LoopWorkspaceScreen() {
       }
     } catch {
       if (preparedRecording) {
-        try {
-          await preparedRecording.stopAndUnloadAsync();
-        } catch {
-          // The recorder may not have reached a prepared state.
-        }
+        await unloadRecording(preparedRecording);
       }
 
       recordingRef.current = null;
       isLayerRecordingOverLoopRef.current = false;
       overwriteTrackRef.current = null;
+      recordingPlaybackStartOffsetMsRef.current = 0;
       setOverwriteTrackId(null);
       setRecordingLoopLimitMs(null);
       setRecording(null);
@@ -419,13 +432,17 @@ export default function LoopWorkspaceScreen() {
       : false;
     const shouldRestartLoopWithSavedTrack = isLayerRecordingOverLoopRef.current;
     const loopDurationForSavedTrack = sessionLoopDurationMs;
-    const fallbackDurationForSavedTrack = recordingLoopLimitMs;
+    const playbackStartOffsetMsForSavedTrack = recordingPlaybackStartOffsetMsRef.current;
+    const fallbackDurationForSavedTrack = recordingLoopLimitMs
+      ? recordingLoopLimitMs + playbackStartOffsetMsForSavedTrack
+      : null;
     let statusDurationMs: number | null = null;
 
     clearRecordingLoopLimitTimeout();
     recordingRef.current = null;
     isLayerRecordingOverLoopRef.current = false;
     overwriteTrackRef.current = null;
+    recordingPlaybackStartOffsetMsRef.current = 0;
     setRecording(null);
     setRecordingLoopLimitMs(null);
     setOverwriteTrackId(null);
@@ -460,11 +477,13 @@ export default function LoopWorkspaceScreen() {
         ? replaceRecordedTrack(activeOverwriteTrack.id, {
             localUri,
             durationMs: savedDurationMs,
+            playbackStartOffsetMs: playbackStartOffsetMsForSavedTrack,
           })
         : addRecordedTrack({
             projectId: project.id,
             localUri,
             durationMs: savedDurationMs,
+            playbackStartOffsetMs: playbackStartOffsetMsForSavedTrack,
           });
 
       if (!savedTrack) {
@@ -584,7 +603,7 @@ export default function LoopWorkspaceScreen() {
 
     sessionSoundRefs.current.clear();
 
-    await Promise.all(activeSounds.map((sound) => stopAndUnloadSound(sound)));
+    await stopAndUnloadSounds(activeSounds);
   };
 
   const playTrack = async (track: LoopTrack) => {
@@ -610,20 +629,11 @@ export default function LoopWorkspaceScreen() {
 
       await setWorkspaceAudioMode(false);
 
-      const { sound } = await Audio.Sound.createAsync(
-        { uri: track.localUri },
-        {
-          shouldPlay: true,
-          volume: track.volume,
-        },
-        (status) => {
-          if (status.isLoaded && status.didJustFinish) {
-            void sound.unloadAsync();
-            soundRef.current = null;
-            setPlayingTrackId(null);
-          }
-        }
-      );
+      const sound = await playRecordedTrack(track, (finishedSound) => {
+        void finishedSound.unloadAsync();
+        soundRef.current = null;
+        setPlayingTrackId(null);
+      });
 
       soundRef.current = sound;
       setPlayingTrackId(track.id);
@@ -679,7 +689,7 @@ export default function LoopWorkspaceScreen() {
   };
 
   const playRecordingBackingLoop = async (sessionTracks: LoopTrack[]) => {
-    const loadedSounds = new Map<string, Audio.Sound>();
+    let loadedSounds = new Map<string, Audio.Sound>();
 
     try {
       await stopSessionPlayback();
@@ -689,43 +699,26 @@ export default function LoopWorkspaceScreen() {
       sessionPlaybackGenerationRef.current = playbackGeneration;
       setIsSessionPlaying(true);
 
-      for (const track of sessionTracks) {
-        if (!track.localUri) {
-          continue;
-        }
-
-        const { sound } = await Audio.Sound.createAsync(
-          { uri: track.localUri },
-          {
-            shouldPlay: false,
-            isLooping: true,
-            positionMillis: 0,
-            volume: RECORDING_MONITOR_VOLUME,
-          }
-        );
-        loadedSounds.set(track.id, sound);
-      }
+      loadedSounds = await loadRecordingMonitorSounds(sessionTracks);
 
       if (playbackGeneration !== sessionPlaybackGenerationRef.current) {
-        await Promise.all(Array.from(loadedSounds.values()).map((sound) => sound.unloadAsync()));
-        return false;
+        await stopAndUnloadSounds(loadedSounds.values());
+        return null;
       }
 
       sessionSoundRefs.current = loadedSounds;
 
-      await Promise.all(
-        Array.from(loadedSounds.values()).map((sound) => sound.playFromPositionAsync(0))
-      );
+      await playTrackSoundMapFromLoopStart(loadedSounds, sessionTracks);
 
-      return true;
+      return Date.now();
     } catch {
-      await Promise.all(Array.from(loadedSounds.values()).map((sound) => sound.unloadAsync()));
+      await stopAndUnloadSounds(loadedSounds.values());
       sessionSoundRefs.current.clear();
       sessionPlaybackGenerationRef.current += 1;
       setIsSessionPlaying(false);
 
       Alert.alert('Session playback failed', 'Could not play existing layers while recording.');
-      return false;
+      return null;
     }
   };
 
@@ -734,36 +727,21 @@ export default function LoopWorkspaceScreen() {
     loopDurationMs: number,
     playbackGeneration: number
   ) => {
-    const loadedSounds = new Map<string, Audio.Sound>();
+    let loadedSounds = new Map<string, Audio.Sound>();
 
     await stopSessionSounds();
 
     try {
-      for (const track of sessionTracks) {
-        if (!track.localUri) {
-          continue;
-        }
-
-        const { sound } = await Audio.Sound.createAsync(
-          { uri: track.localUri },
-          {
-            shouldPlay: false,
-            volume: track.volume,
-          }
-        );
-        loadedSounds.set(track.id, sound);
-      }
+      loadedSounds = await loadSessionTrackSounds(sessionTracks);
 
       if (playbackGeneration !== sessionPlaybackGenerationRef.current) {
-        await Promise.all(Array.from(loadedSounds.values()).map((sound) => sound.unloadAsync()));
+        await stopAndUnloadSounds(loadedSounds.values());
         return false;
       }
 
       sessionSoundRefs.current = loadedSounds;
 
-      await Promise.all(
-        Array.from(loadedSounds.values()).map((sound) => sound.playFromPositionAsync(0))
-      );
+      await playTrackSoundMapFromLoopStart(loadedSounds, sessionTracks);
 
       clearSessionLoopTimeout();
       sessionLoopTimeoutRef.current = setTimeout(() => {
@@ -774,7 +752,7 @@ export default function LoopWorkspaceScreen() {
 
       return true;
     } catch {
-      await Promise.all(Array.from(loadedSounds.values()).map((sound) => sound.unloadAsync()));
+      await stopAndUnloadSounds(loadedSounds.values());
       sessionSoundRefs.current.clear();
       clearSessionLoopTimeout();
       sessionPlaybackGenerationRef.current += 1;
@@ -944,6 +922,14 @@ export default function LoopWorkspaceScreen() {
     }
   };
 
+  const updateOverdubLatencyCompensation = (deltaMs: number) => {
+    const nextValue = normalizeOverdubLatencyCompensationMs(overdubLatencyCompensationMs + deltaMs);
+
+    if (nextValue !== null) {
+      setOverdubLatencyCompensationMs(nextValue);
+    }
+  };
+
   if (!project) {
     return (
       <SafeAreaView style={styles.safeArea}>
@@ -1081,6 +1067,61 @@ export default function LoopWorkspaceScreen() {
                     }.`
                   : 'Record a short idea, then use Play all to hear the workspace.'}
           </Text>
+
+          <View style={styles.latencyRow}>
+            <Text style={styles.latencyLabel}>Overdub alignment</Text>
+            <View style={styles.latencyControls}>
+              <Pressable
+                style={[
+                  styles.latencyButton,
+                  overdubLatencyCompensationMs <= MIN_OVERDUB_LATENCY_COMPENSATION_MS
+                    ? styles.latencyButtonDisabled
+                    : null,
+                ]}
+                onPress={() => {
+                  updateOverdubLatencyCompensation(-OVERDUB_LATENCY_COMPENSATION_STEP_MS);
+                }}
+                disabled={overdubLatencyCompensationMs <= MIN_OVERDUB_LATENCY_COMPENSATION_MS}
+              >
+                <Text
+                  style={[
+                    styles.latencyButtonText,
+                    overdubLatencyCompensationMs <= MIN_OVERDUB_LATENCY_COMPENSATION_MS
+                      ? styles.latencyButtonTextDisabled
+                      : null,
+                  ]}
+                >
+                  Later
+                </Text>
+              </Pressable>
+
+              <Text style={styles.latencyValue}>{overdubLatencyCompensationMs} ms</Text>
+
+              <Pressable
+                style={[
+                  styles.latencyButton,
+                  overdubLatencyCompensationMs >= MAX_OVERDUB_LATENCY_COMPENSATION_MS
+                    ? styles.latencyButtonDisabled
+                    : null,
+                ]}
+                onPress={() => {
+                  updateOverdubLatencyCompensation(OVERDUB_LATENCY_COMPENSATION_STEP_MS);
+                }}
+                disabled={overdubLatencyCompensationMs >= MAX_OVERDUB_LATENCY_COMPENSATION_MS}
+              >
+                <Text
+                  style={[
+                    styles.latencyButtonText,
+                    overdubLatencyCompensationMs >= MAX_OVERDUB_LATENCY_COMPENSATION_MS
+                      ? styles.latencyButtonTextDisabled
+                      : null,
+                  ]}
+                >
+                  Earlier
+                </Text>
+              </Pressable>
+            </View>
+          </View>
         </View>
 
         <View style={styles.tracksCard}>
@@ -1502,6 +1543,45 @@ const styles = StyleSheet.create({
     color: '#94A3B8',
     fontSize: 14,
     lineHeight: 20,
+  },
+  latencyRow: {
+    gap: 10,
+  },
+  latencyLabel: {
+    color: '#CBD5E1',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  latencyControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  latencyButton: {
+    backgroundColor: '#1F2937',
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  latencyButtonDisabled: {
+    opacity: 0.45,
+  },
+  latencyButtonText: {
+    color: '#F9FAFB',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  latencyButtonTextDisabled: {
+    color: '#64748B',
+  },
+  latencyValue: {
+    minWidth: 72,
+    textAlign: 'center',
+    color: '#F9FAFB',
+    fontSize: 14,
+    fontWeight: '800',
   },
   tracksCard: {
     backgroundColor: '#111827',
