@@ -22,6 +22,7 @@ const validTrack: LoopTrack = {
   name: 'Guitar Layer',
   localUri: 'file:///recording.m4a',
   durationMs: 12000,
+  playbackStartOffsetMs: 180,
   volume: 0.8,
   muted: false,
   solo: false,
@@ -76,8 +77,24 @@ describe('track storage', () => {
     expect(tracks).toEqual([
       {
         ...olderStoredTrack,
+        playbackStartOffsetMs: 0,
         cloudSyncStatus: 'local-only',
         backendTrackId: null,
+      },
+    ]);
+  });
+
+  it('defaults older stored tracks without playback offset to zero', async () => {
+    const { playbackStartOffsetMs, ...olderStoredTrack } = validTrack;
+
+    mockGetItem.mockResolvedValueOnce(JSON.stringify([olderStoredTrack]));
+
+    const tracks = await loadTracksFromStorage();
+
+    expect(tracks).toEqual([
+      {
+        ...olderStoredTrack,
+        playbackStartOffsetMs: 0,
       },
     ]);
   });

@@ -6,6 +6,7 @@ export type LoopTrack = {
   name: string;
   localUri: string | null;
   durationMs: number;
+  playbackStartOffsetMs?: number;
   volume: number;
   muted: boolean;
   solo: boolean;

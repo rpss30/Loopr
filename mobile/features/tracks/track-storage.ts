@@ -57,8 +57,9 @@ function normalizeLoopTrack(value: unknown): LoopTrack | null {
   }
 
   const cloudSyncStatus = normalizeCloudSyncStatus(value.cloudSyncStatus);
+  const playbackStartOffsetMs = normalizePlaybackStartOffsetMs(value.playbackStartOffsetMs);
 
-  if (!cloudSyncStatus) {
+  if (!cloudSyncStatus || playbackStartOffsetMs === null) {
     return null;
   }
 
@@ -76,6 +77,7 @@ function normalizeLoopTrack(value: unknown): LoopTrack | null {
     name: value.name,
     localUri: value.localUri,
     durationMs: value.durationMs,
+    playbackStartOffsetMs,
     volume: value.volume,
     muted: value.muted,
     solo: value.solo,
@@ -85,6 +87,18 @@ function normalizeLoopTrack(value: unknown): LoopTrack | null {
     createdAt: value.createdAt,
     updatedAt: value.updatedAt,
   };
+}
+
+function normalizePlaybackStartOffsetMs(value: unknown) {
+  if (value === undefined || value === null) {
+    return 0;
+  }
+
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
+    return null;
+  }
+
+  return Math.round(value);
 }
 
 function normalizeCloudSyncStatus(value: unknown): LoopTrackCloudSyncStatus | null {
